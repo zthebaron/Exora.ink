@@ -14,6 +14,7 @@ const navLinks = [
   { href: "/price-sheets", label: "Price Sheets" },
   { href: "/equipment", label: "Equipment" },
   { href: "/infographics", label: "Infographics" },
+  { href: "/blog", label: "Blog" },
   { href: "/admin", label: "Admin" },
 ];
 
