@@ -6,6 +6,8 @@ import type {
   SensitivityPoint,
   CLVResult,
 } from "@/types";
+import type { RollWidthMode } from "@/lib/constants";
+import { ROLL_WIDTH_OPTIONS, getGangSheetSizes } from "@/lib/constants";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -32,11 +34,12 @@ function round2(value: number): number {
 // 1. Default Assumptions
 // ---------------------------------------------------------------------------
 
-export function getDefaultAssumptions(): Assumptions {
+export function getDefaultAssumptions(rollMode: RollWidthMode = "wide"): Assumptions {
+  const roll = ROLL_WIDTH_OPTIONS[rollMode];
   return {
     // Material costs
-    filmCostPerRoll: 85,
-    rollWidth: 22,       // inches
+    filmCostPerRoll: roll.rollCost,
+    rollWidth: roll.width,  // inches
     rollLength: 328,     // feet
     inkCostPerMl: 0.08,
     avgInkUsagePerSqFt: 12,   // ml
@@ -289,8 +292,9 @@ export function calculateScenario(
 // 5. Scenario Presets
 // ---------------------------------------------------------------------------
 
-export function getScenarioPresets(assumptions: Assumptions): ScenarioResult[] {
-  const defaultSize = { width: 22, height: 24 };
+export function getScenarioPresets(assumptions: Assumptions, rollMode: RollWidthMode = "wide"): ScenarioResult[] {
+  const sizes = getGangSheetSizes(rollMode);
+  const defaultSize = { width: sizes[1].width, height: sizes[1].height };
 
   // Best-case: premium pricing with 70 % gross margin
   const premiumMarginAssumptions: Assumptions = {
@@ -334,8 +338,9 @@ export function getScenarioPresets(assumptions: Assumptions): ScenarioResult[] {
 // 6. Sensitivity Analysis
 // ---------------------------------------------------------------------------
 
-export function calculateSensitivity(assumptions: Assumptions): SensitivityPoint[] {
-  const defaultSize = { width: 22, height: 24 };
+export function calculateSensitivity(assumptions: Assumptions, rollMode: RollWidthMode = "wide"): SensitivityPoint[] {
+  const sizes = getGangSheetSizes(rollMode);
+  const defaultSize = { width: sizes[1].width, height: sizes[1].height };
   const baseMonthlyOrders = 250;
   const baseRetailMix = 0.8;
 

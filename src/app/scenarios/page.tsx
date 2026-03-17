@@ -15,7 +15,8 @@ import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { formatCurrency, formatPercent, formatNumber } from "@/lib/formatters";
-import { GANG_SHEET_SIZES } from "@/lib/constants";
+import { ROLL_WIDTH_OPTIONS, getGangSheetSizes } from "@/lib/constants";
+import type { RollWidthMode } from "@/lib/constants";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -222,22 +223,36 @@ function TornadoChart({ points }: { points: SensitivityPoint[] }) {
 // ---------------------------------------------------------------------------
 
 export default function ScenariosPage() {
-  const [assumptions] = useState<Assumptions>(() => getDefaultAssumptions());
+  const [rollMode, setRollMode] = useState<RollWidthMode>("wide");
+  const [assumptions, setAssumptions] = useState<Assumptions>(() => getDefaultAssumptions("wide"));
+
+  const gangSheetSizes = useMemo(() => getGangSheetSizes(rollMode), [rollMode]);
+
+  const switchRollMode = (mode: RollWidthMode) => {
+    setRollMode(mode);
+    const newDefaults = getDefaultAssumptions(mode);
+    setAssumptions((prev) => ({
+      ...prev,
+      rollWidth: newDefaults.rollWidth,
+      filmCostPerRoll: newDefaults.filmCostPerRoll,
+    }));
+    setCustomSheetIndex((idx) => Math.min(idx, getGangSheetSizes(mode).length - 1));
+  };
 
   // Custom scenario state
   const [customName, setCustomName] = useState("My Custom Scenario");
   const [customOrders, setCustomOrders] = useState(200);
   const [customRetailMix, setCustomRetailMix] = useState(75);
-  const [customSheetIndex, setCustomSheetIndex] = useState(1); // Medium 22x24
+  const [customSheetIndex, setCustomSheetIndex] = useState(1); // Medium
   const [customWaste, setCustomWaste] = useState(assumptions.wastePercentage);
   const [customMargin, setCustomMargin] = useState(assumptions.desiredGrossMargin);
 
   // Presets
-  const presets = useMemo(() => getScenarioPresets(assumptions), [assumptions]);
+  const presets = useMemo(() => getScenarioPresets(assumptions, rollMode), [assumptions, rollMode]);
 
   // Custom scenario result
   const customResult = useMemo(() => {
-    const size = GANG_SHEET_SIZES[customSheetIndex];
+    const size = gangSheetSizes[customSheetIndex];
     const overriddenAssumptions: Assumptions = {
       ...assumptions,
       wastePercentage: customWaste,
@@ -250,12 +265,12 @@ export default function ScenariosPage() {
       { width: size.width, height: size.height },
       customRetailMix / 100,
     );
-  }, [assumptions, customName, customOrders, customRetailMix, customSheetIndex, customWaste, customMargin]);
+  }, [assumptions, customName, customOrders, customRetailMix, customSheetIndex, customWaste, customMargin, gangSheetSizes]);
 
   // Sensitivity data
   const sensitivityData = useMemo(
-    () => calculateSensitivity(assumptions),
-    [assumptions],
+    () => calculateSensitivity(assumptions, rollMode),
+    [assumptions, rollMode],
   );
 
   return (
@@ -270,6 +285,26 @@ export default function ScenariosPage() {
             Compare business scenarios side-by-side. Test volume, pricing, and
             customer mix strategies.
           </p>
+        </div>
+
+        {/* Roll Width Toggle */}
+        <div className="mb-6">
+          <label className="mb-2 block text-sm font-medium text-foreground">Roll Width</label>
+          <div className="flex gap-2">
+            {(Object.keys(ROLL_WIDTH_OPTIONS) as RollWidthMode[]).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => switchRollMode(mode)}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  rollMode === mode
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                {ROLL_WIDTH_OPTIONS[mode].label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Tabs */}
@@ -348,7 +383,7 @@ export default function ScenariosPage() {
                       value={String(customSheetIndex)}
                       onChange={(e) => setCustomSheetIndex(Number(e.target.value))}
                     >
-                      {GANG_SHEET_SIZES.map((size, idx) => (
+                      {gangSheetSizes.map((size, idx) => (
                         <option key={size.name} value={String(idx)}>
                           {size.name} &mdash; {size.label}
                         </option>
@@ -386,7 +421,7 @@ export default function ScenariosPage() {
                   <CardTitle>{customResult.name}</CardTitle>
                   <p className="text-sm text-muted-foreground">
                     {formatNumber(customResult.monthlyOrders)} orders/mo &middot;{" "}
-                    {GANG_SHEET_SIZES[customSheetIndex].label} sheets &middot;{" "}
+                    {gangSheetSizes[customSheetIndex].label} sheets &middot;{" "}
                     {customRetailMix}% retail
                   </p>
                 </CardHeader>

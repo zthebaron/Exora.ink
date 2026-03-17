@@ -1,7 +1,8 @@
 "use client";
 
 import { useCalculator } from "@/hooks/use-calculator";
-import { GANG_SHEET_SIZES } from "@/lib/constants";
+import { ROLL_WIDTH_OPTIONS } from "@/lib/constants";
+import type { RollWidthMode } from "@/lib/constants";
 import { formatCurrency, formatPercent } from "@/lib/formatters";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
@@ -57,12 +58,15 @@ const COST_LABELS: Record<string, string> = {
 
 export default function CalculatorPage() {
   const {
+    rollMode,
+    switchRollMode,
     assumptions,
     updateAssumption,
     resetAssumptions,
     selectedSizeIndex,
     setSelectedSizeIndex,
     selectedSize,
+    gangSheetSizes,
     costBreakdown,
     pricing,
     allSizePricing,
@@ -100,6 +104,33 @@ export default function CalculatorPage() {
         <div className="grid gap-8 lg:grid-cols-[340px_1fr]">
           {/* ---- LEFT SIDEBAR ---- */}
           <aside className="space-y-6 lg:max-h-[calc(100vh-10rem)] lg:overflow-y-auto lg:pr-2">
+            {/* Roll Width Mode */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Roll Width</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2">
+                  {(Object.keys(ROLL_WIDTH_OPTIONS) as RollWidthMode[]).map((mode) => (
+                    <button
+                      key={mode}
+                      onClick={() => switchRollMode(mode)}
+                      className={`flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+                        rollMode === mode
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      }`}
+                    >
+                      {ROLL_WIDTH_OPTIONS[mode].label}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Roll cost: ${ROLL_WIDTH_OPTIONS[rollMode].rollCost}/roll
+                </p>
+              </CardContent>
+            </Card>
+
             {/* Sheet Size Selector */}
             <Card>
               <CardHeader>
@@ -110,7 +141,7 @@ export default function CalculatorPage() {
                   value={String(selectedSizeIndex)}
                   onChange={(e) => setSelectedSizeIndex(Number(e.target.value))}
                 >
-                  {GANG_SHEET_SIZES.map((size, i) => (
+                  {gangSheetSizes.map((size, i) => (
                     <option key={size.name} value={i}>
                       {size.name} &mdash; {size.label}
                     </option>

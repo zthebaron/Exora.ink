@@ -8,7 +8,8 @@ import {
   calculateSensitivity,
   calculateCostBreakdown,
 } from "@/lib/pricing-engine";
-import { GANG_SHEET_SIZES } from "@/lib/constants";
+import { ROLL_WIDTH_OPTIONS, getGangSheetSizes } from "@/lib/constants";
+import type { RollWidthMode } from "@/lib/constants";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { formatCurrency, formatPercent, formatNumber } from "@/lib/formatters";
@@ -52,31 +53,34 @@ const PIE_COLORS = [
 ];
 
 export default function DashboardPage() {
+  const [rollMode, setRollMode] = useState<RollWidthMode>("wide");
   const [monthlyVolume, setMonthlyVolume] = useState(250);
   const [priceMultiplier, setPriceMultiplier] = useState(1.0);
   const [wasteRate, setWasteRate] = useState(5);
   const [retailMix, setRetailMix] = useState(70);
 
+  const gangSheetSizes = useMemo(() => getGangSheetSizes(rollMode), [rollMode]);
+
   const assumptions = useMemo(() => {
-    const base = getDefaultAssumptions();
+    const base = getDefaultAssumptions(rollMode);
     return {
       ...base,
       wastePercentage: wasteRate,
     };
-  }, [wasteRate]);
+  }, [wasteRate, rollMode]);
 
   const scenarioPresets = useMemo(
-    () => getScenarioPresets(assumptions).slice(0, 6),
-    [assumptions]
+    () => getScenarioPresets(assumptions, rollMode).slice(0, 6),
+    [assumptions, rollMode]
   );
 
   const sensitivity = useMemo(
-    () => calculateSensitivity(assumptions),
-    [assumptions]
+    () => calculateSensitivity(assumptions, rollMode),
+    [assumptions, rollMode]
   );
 
   // Medium sheet size for base calculations
-  const mediumSheet = GANG_SHEET_SIZES[1]; // 22x24
+  const mediumSheet = gangSheetSizes[1];
   const basePricing = useMemo(
     () => calculatePricing(assumptions, mediumSheet.width, mediumSheet.height),
     [assumptions, mediumSheet.width, mediumSheet.height]
@@ -126,7 +130,7 @@ export default function DashboardPage() {
   // Chart 2: Gross Margin by Product Size
   const marginBySize = useMemo(
     () =>
-      GANG_SHEET_SIZES.map((size) => {
+      gangSheetSizes.map((size) => {
         const pricing = calculatePricing(assumptions, size.width, size.height);
         const adjustedRetail = pricing.retailPrice * priceMultiplier;
         const cost = pricing.costBreakdown.totalCostPerSheet;
@@ -326,7 +330,26 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle>Scenario Controls</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
+            {/* Roll Width Toggle */}
+            <div>
+              <label className="mb-2 block text-sm font-medium text-foreground">Roll Width</label>
+              <div className="flex gap-2">
+                {(Object.keys(ROLL_WIDTH_OPTIONS) as RollWidthMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setRollMode(mode)}
+                    className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                      rollMode === mode
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    }`}
+                  >
+                    {ROLL_WIDTH_OPTIONS[mode].label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
               <Slider
                 label="Monthly Volume"

@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useRef } from "react";
 import { getDefaultAssumptions, calculatePricing } from "@/lib/pricing-engine";
-import { GANG_SHEET_SIZES, VOLUME_DISCOUNT_TIERS, BRAND } from "@/lib/constants";
+import { VOLUME_DISCOUNT_TIERS, BRAND, ROLL_WIDTH_OPTIONS, getGangSheetSizes } from "@/lib/constants";
+import type { RollWidthMode } from "@/lib/constants";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -19,16 +20,18 @@ const TIER_LABELS: Record<PricingTier, string> = {
 
 export default function PriceSheetsPage() {
   const [activeTier, setActiveTier] = useState<PricingTier>("retail");
+  const [rollMode, setRollMode] = useState<RollWidthMode>("wide");
   const [showBulkDiscounts, setShowBulkDiscounts] = useState(true);
   const [showRushPricing, setShowRushPricing] = useState(true);
   const [showMinimumOrder, setShowMinimumOrder] = useState(true);
   const [customMessage, setCustomMessage] = useState("");
   const previewRef = useRef<HTMLDivElement>(null);
 
-  const assumptions = useMemo(() => getDefaultAssumptions(), []);
+  const gangSheetSizes = useMemo(() => getGangSheetSizes(rollMode), [rollMode]);
+  const assumptions = useMemo(() => getDefaultAssumptions(rollMode), [rollMode]);
 
   const sheetPricing = useMemo(() => {
-    return GANG_SHEET_SIZES.map((size) => {
+    return gangSheetSizes.map((size) => {
       const result = calculatePricing(assumptions, size.width, size.height);
       const resellerPrice = Math.round(result.wholesalePrice * 0.85 * 100) / 100;
       return {
@@ -39,7 +42,7 @@ export default function PriceSheetsPage() {
         rushPrice: result.rushPrice,
       };
     });
-  }, [assumptions]);
+  }, [assumptions, gangSheetSizes]);
 
   const mediumPricing = sheetPricing.find((s) => s.name === "Medium");
 
@@ -106,6 +109,28 @@ export default function PriceSheetsPage() {
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
+
+              {/* Roll Width Toggle */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Roll Width
+                </label>
+                <div className="flex gap-2">
+                  {(Object.keys(ROLL_WIDTH_OPTIONS) as RollWidthMode[]).map((mode) => (
+                    <button
+                      key={mode}
+                      onClick={() => setRollMode(mode)}
+                      className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                        rollMode === mode
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      }`}
+                    >
+                      {ROLL_WIDTH_OPTIONS[mode].label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               {/* Toggle Options */}
               <div className="flex flex-wrap gap-6">
