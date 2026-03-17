@@ -12,6 +12,7 @@ const navLinks = [
   { href: "/scenarios", label: "Scenarios" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/price-sheets", label: "Price Sheets" },
+  { href: "/equipment", label: "Equipment" },
   { href: "/infographics", label: "Infographics" },
   { href: "/admin", label: "Admin" },
 ];
