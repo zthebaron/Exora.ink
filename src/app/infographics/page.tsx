@@ -38,7 +38,7 @@ function ProfitabilityFlow() {
       title: "Materials",
       subtitle: "Input Costs",
       details: ["Film & substrate", "Ink & powder", "Packaging supplies"],
-      color: "bg-violet-500",
+      color: "bg-teal-500",
     },
     {
       icon: Zap,
@@ -67,7 +67,7 @@ function ProfitabilityFlow() {
     <Card className="border-border">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xl">
-          <BarChart3 className="h-5 w-5 text-violet-500" />
+          <BarChart3 className="h-5 w-5 text-teal-500" />
           How DTF Profitability Works
         </CardTitle>
       </CardHeader>
@@ -113,7 +113,7 @@ function CostDrivers() {
       label: "Film & Substrate",
       range: "15-20% of COGS",
       desc: "Base transfer film, specialty substrates, and release liners.",
-      color: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
+      color: "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300",
     },
     {
       icon: Target,
@@ -286,7 +286,7 @@ function ProductMixes() {
       mix: "90% retail / 10% wholesale",
       margin: "50-65%",
       badge: "Highest Margin",
-      badgeColor: "bg-violet-500 text-white",
+      badgeColor: "bg-teal-500 text-white",
       traits: [
         "Highest per-order profit",
         "More marketing spend needed",
@@ -378,7 +378,7 @@ function BreakEven() {
               className="bg-muted/50 rounded-xl border border-border p-5 text-center"
             >
               <p className="text-foreground text-sm font-bold">{t.level}</p>
-              <p className="mt-1 text-2xl font-extrabold text-violet-600 dark:text-violet-400">
+              <p className="mt-1 text-2xl font-extrabold text-teal-600 dark:text-teal-400">
                 {t.sheets}
               </p>
               <p className="text-muted-foreground mt-1 text-xs font-medium">
@@ -418,7 +418,7 @@ function CapacityEfficiency() {
               key={m.label}
               className="bg-muted/50 flex items-start gap-4 rounded-xl border border-border p-4"
             >
-              <div className="text-2xl font-extrabold text-violet-600 dark:text-violet-400 min-w-[80px]">
+              <div className="text-2xl font-extrabold text-teal-600 dark:text-teal-400 min-w-[80px]">
                 {m.value}
               </div>
               <div>
@@ -442,7 +442,7 @@ function GangSheetSavings() {
     <Card className="border-border">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xl">
-          <Layers className="h-5 w-5 text-violet-500" />
+          <Layers className="h-5 w-5 text-teal-500" />
           Why Gang Sheets Save Money
         </CardTitle>
       </CardHeader>
@@ -569,7 +569,7 @@ function VolumePricingVisual() {
               </span>
               <div className="bg-muted relative h-7 flex-1 overflow-hidden rounded-full">
                 <div
-                  className={`${t.fill} h-full rounded-full bg-gradient-to-r from-violet-500 to-sky-500`}
+                  className={`${t.fill} h-full rounded-full bg-gradient-to-r from-teal-500 to-sky-500`}
                 />
               </div>
               <span className="w-10 text-xs font-bold text-emerald-600 dark:text-emerald-400">
@@ -728,7 +728,7 @@ function WholesaleBenefits() {
     <Card className="border-border">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xl">
-          <Package className="h-5 w-5 text-violet-500" />
+          <Package className="h-5 w-5 text-teal-500" />
           Wholesale Benefits
         </CardTitle>
       </CardHeader>
@@ -740,9 +740,9 @@ function WholesaleBenefits() {
           {benefits.map((b) => (
             <div
               key={b.title}
-              className="flex items-start gap-3 rounded-xl bg-violet-50/60 p-4 dark:bg-violet-950/30"
+              className="flex items-start gap-3 rounded-xl bg-teal-50/60 p-4 dark:bg-teal-950/30"
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-300">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-300">
                 <b.icon className="h-5 w-5" />
               </div>
               <div>
@@ -804,7 +804,7 @@ function QualityCommitment() {
     <Card className="border-border">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xl">
-          <CheckCircle className="h-5 w-5 text-violet-500" />
+          <CheckCircle className="h-5 w-5 text-teal-500" />
           Quality Commitment
         </CardTitle>
       </CardHeader>
@@ -815,7 +815,7 @@ function QualityCommitment() {
               key={s.label}
               className="bg-muted/50 flex items-start gap-3 rounded-xl border border-border p-4"
             >
-              <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-violet-500" />
+              <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-teal-500" />
               <div>
                 <p className="text-foreground text-sm font-bold">{s.label}</p>
                 <p className="text-muted-foreground text-xs">{s.desc}</p>

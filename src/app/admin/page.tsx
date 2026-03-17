@@ -274,7 +274,7 @@ export default function AdminPage() {
           <div className="flex gap-3">
             <button
               onClick={() => handleSave("Assumptions")}
-              className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+              className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700"
             >
               <Save className="h-4 w-4" /> Save Assumptions
             </button>
@@ -410,7 +410,7 @@ export default function AdminPage() {
                             setNewSize({ name: "", width: 22, height: 12, label: "" });
                             setShowNewSizeForm(false);
                           }}
-                          className="rounded-lg bg-violet-600 px-3 py-2 text-sm text-white hover:bg-violet-700"
+                          className="rounded-lg bg-teal-600 px-3 py-2 text-sm text-white hover:bg-teal-700"
                         >
                           Add
                         </button>
@@ -438,7 +438,7 @@ export default function AdminPage() {
           <div className="flex gap-3">
             <button
               onClick={() => handleSave("Product Sizes")}
-              className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+              className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700"
             >
               <Save className="h-4 w-4" /> Save Product Sizes
             </button>
@@ -597,7 +597,7 @@ export default function AdminPage() {
           <div className="flex gap-3">
             <button
               onClick={() => handleSave("Pricing & Discounts")}
-              className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+              className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700"
             >
               <Save className="h-4 w-4" /> Save Pricing
             </button>
@@ -710,7 +710,7 @@ export default function AdminPage() {
           <div className="flex gap-3">
             <button
               onClick={() => handleSave("Company Settings")}
-              className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+              className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700"
             >
               <Save className="h-4 w-4" /> Save Company Settings
             </button>
@@ -950,7 +950,7 @@ export default function AdminPage() {
           <div className="flex gap-3">
             <button
               onClick={() => handleSave("Content & Guides")}
-              className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+              className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700"
             >
               <Save className="h-4 w-4" /> Save Content
             </button>

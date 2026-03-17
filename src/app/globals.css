@@ -32,7 +32,7 @@
 :root {
   --background: #FAFBFD;
   --foreground: #0F172A;
-  --primary: #6D28D9;
+  --primary: #0D9488;
   --primary-foreground: #FFFFFF;
   --secondary: #0EA5E9;
   --secondary-foreground: #FFFFFF;
@@ -43,9 +43,9 @@
   --card: #FFFFFF;
   --card-foreground: #0F172A;
   --border: #E2E8F0;
-  --ring: #6D28D9;
+  --ring: #0D9488;
   --destructive: #EF4444;
-  --chart-1: #6D28D9;
+  --chart-1: #0D9488;
   --chart-2: #0EA5E9;
   --chart-3: #10B981;
   --chart-4: #F59E0B;
@@ -55,7 +55,7 @@
 .dark {
   --background: #0B0F1A;
   --foreground: #F1F5F9;
-  --primary: #8B5CF6;
+  --primary: #14B8A6;
   --primary-foreground: #FFFFFF;
   --secondary: #38BDF8;
   --secondary-foreground: #FFFFFF;
@@ -66,9 +66,9 @@
   --card: #111827;
   --card-foreground: #F1F5F9;
   --border: #1E293B;
-  --ring: #8B5CF6;
+  --ring: #14B8A6;
   --destructive: #F87171;
-  --chart-1: #8B5CF6;
+  --chart-1: #14B8A6;
   --chart-2: #38BDF8;
   --chart-3: #34D399;
   --chart-4: #FBBF24;

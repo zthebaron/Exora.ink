@@ -3,8 +3,8 @@ export const BRAND = {
   tagline: "DTF Printing Intelligence Platform",
   description: "Professional DTF profitability analysis, pricing optimization, and business intelligence for modern print operations.",
   colors: {
-    primary: "#6D28D9",     // violet-700
-    primaryLight: "#8B5CF6", // violet-500
+    primary: "#0D9488",     // teal-600
+    primaryLight: "#14B8A6", // teal-500
     secondary: "#0EA5E9",   // sky-500
     accent: "#F59E0B",      // amber-500
     dark: "#0F172A",        // slate-900

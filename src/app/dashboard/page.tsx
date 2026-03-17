@@ -36,7 +36,7 @@ import {
 } from "recharts";
 
 const CHART_COLORS = {
-  chart1: "#6D28D9",
+  chart1: "#0D9488",
   chart2: "#0EA5E9",
   chart3: "#10B981",
   chart4: "#F59E0B",

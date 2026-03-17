@@ -177,13 +177,13 @@ export default function PriceSheetsPage() {
           className="bg-white text-slate-900 rounded-xl shadow-lg border border-border overflow-hidden print:shadow-none print:border-none print:rounded-none"
         >
           {/* Sheet Header */}
-          <div className="bg-gradient-to-r from-violet-700 to-violet-900 px-10 py-10 text-white">
+          <div className="bg-gradient-to-r from-teal-700 to-teal-900 px-10 py-10 text-white">
             <div className="flex items-start justify-between">
               <div>
                 <h2 className="text-4xl font-bold tracking-tight">
                   {BRAND.name}
                 </h2>
-                <p className="mt-1 text-violet-200 text-lg">
+                <p className="mt-1 text-teal-200 text-lg">
                   {BRAND.tagline}
                 </p>
               </div>
@@ -225,7 +225,7 @@ export default function PriceSheetsPage() {
                         <td className="px-5 py-3 font-medium text-slate-900">
                           {sheet.name}
                           {sheet.name === "Medium" && (
-                            <span className="ml-2 inline-block rounded bg-violet-100 text-violet-700 px-2 py-0.5 text-xs font-medium">
+                            <span className="ml-2 inline-block rounded bg-teal-100 text-teal-700 px-2 py-0.5 text-xs font-medium">
                               Most Popular
                             </span>
                           )}
@@ -401,19 +401,19 @@ export default function PriceSheetsPage() {
                 </h3>
                 <ul className="space-y-2 text-sm text-slate-600">
                   <li className="flex gap-2">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-violet-500" />
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-teal-500" />
                     Vector files preferred (AI, EPS, SVG, PDF)
                   </li>
                   <li className="flex gap-2">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-violet-500" />
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-teal-500" />
                     300 DPI minimum for raster images
                   </li>
                   <li className="flex gap-2">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-violet-500" />
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-teal-500" />
                     CMYK color space
                   </li>
                   <li className="flex gap-2">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-violet-500" />
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-teal-500" />
                     White layer included at no extra cost
                   </li>
                 </ul>
@@ -426,25 +426,25 @@ export default function PriceSheetsPage() {
                 </h3>
                 <ol className="space-y-2 text-sm text-slate-600">
                   <li className="flex gap-3">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700 text-xs font-bold">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-700 text-xs font-bold">
                       1
                     </span>
                     Upload your artwork
                   </li>
                   <li className="flex gap-3">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700 text-xs font-bold">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-700 text-xs font-bold">
                       2
                     </span>
                     Select sheet size and quantity
                   </li>
                   <li className="flex gap-3">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700 text-xs font-bold">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-700 text-xs font-bold">
                       3
                     </span>
                     Approve proof
                   </li>
                   <li className="flex gap-3">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700 text-xs font-bold">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-700 text-xs font-bold">
                       4
                     </span>
                     We print and ship
@@ -497,8 +497,8 @@ export default function PriceSheetsPage() {
 
             {/* ---- Custom Message ---- */}
             {customMessage.trim() && (
-              <section className="rounded-lg border border-violet-200 bg-violet-50 px-6 py-5">
-                <p className="text-sm text-violet-900 whitespace-pre-wrap leading-relaxed">
+              <section className="rounded-lg border border-teal-200 bg-teal-50 px-6 py-5">
+                <p className="text-sm text-teal-900 whitespace-pre-wrap leading-relaxed">
                   {customMessage}
                 </p>
               </section>

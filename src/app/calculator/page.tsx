@@ -32,7 +32,7 @@ function MarginBadge({ margin }: { margin: number }) {
 }
 
 const COST_COLORS: Record<string, string> = {
-  materialCost: "bg-violet-500",
+  materialCost: "bg-teal-500",
   inkCost: "bg-sky-500",
   powderCost: "bg-amber-500",
   laborCost: "bg-emerald-500",
