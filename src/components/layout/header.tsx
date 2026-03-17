@@ -22,14 +22,22 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Logo */}
+        {/* Logo — light-mode (black/red) and dark-mode (white) variants */}
         <Link href="/" className="flex items-center">
+          <Image
+            src="https://exora.ink/wp-content/uploads/2025/03/logo_exora-ink-light@2x.png"
+            alt="Exora.ink"
+            width={140}
+            height={40}
+            className="h-8 w-auto dark:hidden"
+            priority
+          />
           <Image
             src="https://exora.ink/wp-content/uploads/2025/03/logo_exora-ink-dark@2x.png"
             alt="Exora.ink"
             width={140}
             height={40}
-            className="h-8 w-auto dark:brightness-0 dark:invert"
+            className="hidden h-8 w-auto dark:block"
             priority
           />
         </Link>
