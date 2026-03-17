@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Menu, X } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -22,10 +23,15 @@ export function Header() {
     <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo */}
-        <Link href="/" className="text-xl font-bold">
-          <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-            Exora.ink
-          </span>
+        <Link href="/" className="flex items-center">
+          <Image
+            src="https://exora.ink/wp-content/uploads/2025/03/logo_exora-ink-dark@2x.png"
+            alt="Exora.ink"
+            width={140}
+            height={40}
+            className="h-8 w-auto dark:brightness-0 dark:invert"
+            priority
+          />
         </Link>
 
         {/* Desktop nav */}
