@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { blogPosts, getPostBySlug } from "@/content/blog/posts";
 import { ArrowLeft, Clock, Calendar, Tag } from "lucide-react";
 
@@ -11,9 +12,29 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const post = getPostBySlug(slug);
   if (!post) return { title: "Post Not Found" };
+
+  const url = `https://exora-ink.vercel.app/blog/${post.slug}`;
+
   return {
     title: `${post.title} — Exora.ink Blog`,
     description: post.excerpt,
+    openGraph: {
+      title: post.title,
+      description: post.excerpt,
+      url,
+      type: "article",
+      publishedTime: post.date,
+      tags: post.tags,
+      images: post.image
+        ? [{ url: post.image, width: 1200, height: 630, alt: post.title }]
+        : [{ url: "/og-default.png", width: 1200, height: 630, alt: post.title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.title,
+      description: post.excerpt,
+      images: post.image ? [post.image] : ["/og-default.png"],
+    },
   };
 }
 
@@ -231,25 +252,38 @@ export default async function BlogPostPage({
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero gradient */}
+      {/* Hero image or gradient */}
+      {post.image && (
+        <div className="relative h-64 w-full sm:h-80 lg:h-96">
+          <Image
+            src={post.image}
+            alt={post.title}
+            fill
+            className="object-cover"
+            sizes="100vw"
+            priority
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-black/20" />
+        </div>
+      )}
       <div
-        className={`bg-gradient-to-br ${post.gradient} px-6 py-16 sm:py-20`}
+        className={`${post.image ? "bg-background" : `bg-gradient-to-br ${post.gradient}`} px-6 ${post.image ? "py-8 sm:py-10" : "py-16 sm:py-20"}`}
       >
         <div className="mx-auto max-w-3xl">
           <Link
             href="/blog"
-            className="mb-6 inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-sm text-white backdrop-blur-sm transition-colors hover:bg-white/30"
+            className={`mb-6 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm transition-colors ${post.image ? "bg-muted text-foreground hover:bg-muted/80" : "bg-white/20 text-white backdrop-blur-sm hover:bg-white/30"}`}
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             All Posts
           </Link>
-          <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
+          <h1 className={`text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl ${post.image ? "text-foreground" : "text-white"}`}>
             {post.title}
           </h1>
-          <p className="mt-4 text-lg text-white/80 leading-relaxed">
+          <p className={`mt-4 text-lg leading-relaxed ${post.image ? "text-muted-foreground" : "text-white/80"}`}>
             {post.excerpt}
           </p>
-          <div className="mt-6 flex flex-wrap items-center gap-4 text-sm text-white/70">
+          <div className={`mt-6 flex flex-wrap items-center gap-4 text-sm ${post.image ? "text-muted-foreground" : "text-white/70"}`}>
             <span className="flex items-center gap-1.5">
               <Calendar className="h-4 w-4" />
               {new Date(post.date).toLocaleDateString("en-US", {

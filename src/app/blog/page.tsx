@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { blogPosts, getAllCategories } from "@/content/blog/posts";
 import {
   Printer,
@@ -16,6 +17,11 @@ import {
   Puzzle,
   Contrast,
   TrendingUp,
+  Shield,
+  Zap,
+  Target,
+  Users,
+  Package,
 } from "lucide-react";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -34,6 +40,11 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Puzzle,
   Contrast,
   TrendingUp,
+  Shield,
+  Zap,
+  Target,
+  Users,
+  Package,
 };
 
 export const metadata = {
@@ -84,8 +95,18 @@ export default function BlogPage() {
           <div
             className={`relative flex items-center justify-center bg-gradient-to-br ${featured.gradient} px-10 py-16`}
           >
-            <FeaturedIcon className="h-20 w-20 text-white/30" />
-            <span className="absolute right-4 top-4 rounded-full bg-white/20 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
+            {featured.image ? (
+              <Image
+                src={featured.image}
+                alt={featured.title}
+                fill
+                className="object-cover"
+                sizes="(max-width: 1200px) 100vw, 1200px"
+              />
+            ) : (
+              <FeaturedIcon className="h-20 w-20 text-white/30" />
+            )}
+            <span className="absolute right-4 top-4 z-10 rounded-full bg-white/20 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
               Featured
             </span>
           </div>
@@ -127,9 +148,19 @@ export default function BlogPage() {
                 className="group overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md"
               >
                 <div
-                  className={`flex items-center justify-center bg-gradient-to-br ${post.gradient} py-10`}
+                  className={`relative flex items-center justify-center bg-gradient-to-br ${post.gradient} py-10`}
                 >
-                  <PostIcon className="h-12 w-12 text-white/30" />
+                  {post.image ? (
+                    <Image
+                      src={post.image}
+                      alt={post.title}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    />
+                  ) : (
+                    <PostIcon className="h-12 w-12 text-white/30" />
+                  )}
                 </div>
                 <div className="p-5">
                   <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

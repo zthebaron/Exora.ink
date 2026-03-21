@@ -17,11 +17,44 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://exora-ink.vercel.app"),
   title: {
     default: "Exora.ink — DTF Printing Intelligence Platform",
     template: "%s | Exora.ink",
   },
-  description: "Professional DTF profitability analysis, pricing optimization, and business intelligence for modern print operations.",
+  description:
+    "Professional DTF profitability analysis, pricing optimization, and business intelligence for modern print operations.",
+  keywords: [
+    "DTF printing",
+    "direct to film",
+    "DTF calculator",
+    "DTF pricing",
+    "DTF profitability",
+    "DTF business",
+    "garment printing",
+    "custom apparel",
+    "print cost calculator",
+    "DTF equipment",
+    "DTF ink cost",
+    "DTF transfer",
+    "print shop management",
+    "DTF vs screen printing",
+  ],
+  openGraph: {
+    title: "Exora.ink — DTF Printing Intelligence Platform",
+    description:
+      "Professional DTF profitability analysis, pricing optimization, and business intelligence for modern print operations.",
+    url: "https://exora-ink.vercel.app",
+    siteName: "Exora.ink",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Exora.ink — DTF Printing Intelligence Platform",
+    description:
+      "Professional DTF profitability analysis, pricing optimization, and business intelligence for modern print operations.",
+  },
 };
 
 export default function RootLayout({
