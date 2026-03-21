@@ -7,15 +7,11 @@ import { Menu, X } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const navLinks = [
-  { href: "/", label: "Home" },
   { href: "/calculator", label: "Calculator" },
-  { href: "/scenarios", label: "Scenarios" },
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/price-sheets", label: "Price Sheets" },
+  { href: "/price-sheets", label: "Pricing" },
   { href: "/equipment", label: "Equipment" },
   { href: "/infographics", label: "Infographics" },
   { href: "/blog", label: "Blog" },
-  { href: "/admin", label: "Admin" },
 ];
 
 export function Header() {

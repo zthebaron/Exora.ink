@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -35,6 +36,13 @@ export function Footer() {
             <br />
             Digital Boutique, a Division of Digital Universe
           </p>
+
+          <Link
+            href="/admin"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            Log In
+          </Link>
 
           <p className="text-xs text-muted-foreground">
             &copy; {currentYear} Exora.ink. All rights reserved.
