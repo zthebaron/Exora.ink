@@ -4,6 +4,8 @@ export interface Assumptions {
   rollWidth: number;         // inches
   rollLength: number;        // feet
   inkCostPerMl: number;
+  inkCostWhitePerMl: number;
+  inkCostColorPerMl: number;
   avgInkUsagePerSqFt: number; // ml
   powderCostPerLb: number;
   avgPowderUsagePerSqFt: number; // grams
@@ -118,4 +120,62 @@ export interface PriceSheetConfig {
   showRushPricing: boolean;
   showMinimumOrder: boolean;
   customMessage: string;
+}
+
+// ---------------------------------------------------------------------------
+// Press Service Pricing Types
+// ---------------------------------------------------------------------------
+
+import type { PressServiceTier, PlacementComplexity } from "@/lib/constants";
+
+export interface ColorTierDiscount {
+  colorCount: number;
+  tierA: number;
+  tierB: number;
+  tierC: number;
+}
+
+export interface PressServicePlacement {
+  locationId: string;
+  locationLabel: string;
+  complexity: PlacementComplexity;
+  isNonStandard: boolean;
+}
+
+export interface PressServiceQuoteInput {
+  placements: PressServicePlacement[];
+  quantity: number;
+  colorCount: number;
+  tier: PressServiceTier;
+}
+
+export interface PressServiceQuoteResult {
+  // Screen print side
+  screenPrintPerLocation: number;
+  screenPrintScreenCharges: number;
+  screenPrintTotalPerShirt: number;
+  screenPrintOrderTotal: number;
+  // DTF side
+  discountPercent: number;
+  dtfPerShirt: number;
+  dtfOrderTotal: number;
+  // Comparison
+  customerSavingsPerShirt: number;
+  customerSavingsPercent: number;
+  // Profitability
+  costPerShirt: number;
+  grossProfitPerShirt: number;
+  grossMarginPercent: number;
+  meetsMarginFloor: boolean;
+}
+
+export interface WidthComparisonResult {
+  ourWidth: number;
+  ourSqInPerFoot: number;
+  ourCostPerSqIn: number;
+  competitorWidth: number;
+  competitorSqInPerFoot: number;
+  competitorCostPerSqIn: number;
+  areaAdvantagePercent: number;
+  costAdvantagePercent: number;
 }

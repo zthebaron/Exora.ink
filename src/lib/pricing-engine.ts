@@ -7,7 +7,21 @@ import type {
   CLVResult,
 } from "@/types";
 import type { RollWidthMode } from "@/lib/constants";
-import { ROLL_WIDTH_OPTIONS, getGangSheetSizes } from "@/lib/constants";
+import {
+  ROLL_WIDTH_OPTIONS,
+  getGangSheetSizes,
+  SCREEN_PRINT_RATES,
+  COLOR_TIER_DISCOUNTS,
+  PLACEMENT_TYPES,
+  DTF_COST_PER_PLACEMENT,
+  GROSS_MARGIN_FLOOR,
+} from "@/lib/constants";
+import type { PressServiceTier, PlacementComplexity } from "@/lib/constants";
+import type {
+  PressServiceQuoteInput,
+  PressServiceQuoteResult,
+  WidthComparisonResult,
+} from "@/types";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -40,8 +54,10 @@ export function getDefaultAssumptions(rollMode: RollWidthMode = "wide"): Assumpt
     // Material costs
     filmCostPerRoll: roll.rollCost,
     rollWidth: roll.width,  // inches
-    rollLength: 328,     // feet
-    inkCostPerMl: 0.08,
+    rollLength: 325,     // feet (325 ft roll)
+    inkCostPerMl: 0.147, // blended avg (white $0.16 + color $0.133)
+    inkCostWhitePerMl: 0.16,   // $80/500mL
+    inkCostColorPerMl: 0.133,  // $80/600mL
     avgInkUsagePerSqFt: 12,   // ml
     powderCostPerLb: 12,
     avgPowderUsagePerSqFt: 8, // grams
@@ -536,5 +552,119 @@ export function calculateCLV(
     paybackPeriodMonths,
     lifetimeValue,
     lifetimeProfit,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 8. Press Service Pricing (v3 Tiered Model)
+// ---------------------------------------------------------------------------
+
+/** Get the screen print rate per shirt per location for a given color count. */
+export function getScreenPrintRate(colorCount: number): number {
+  const clamped = Math.max(1, Math.min(8, colorCount));
+  return SCREEN_PRINT_RATES.base[clamped] ?? SCREEN_PRINT_RATES.base[1];
+}
+
+/** Get the discount percentage off screen print for a given color count and tier. */
+export function getColorTierDiscount(colorCount: number, tier: PressServiceTier): number {
+  const clamped = Math.max(1, Math.min(8, colorCount));
+  const entry = COLOR_TIER_DISCOUNTS.find((d) => d.colorCount === clamped);
+  if (!entry) return 0;
+  switch (tier) {
+    case "A": return entry.tierA;
+    case "B": return entry.tierB;
+    case "C": return entry.tierC;
+    default: return entry.tierB;
+  }
+}
+
+/** Calculate a full press service quote using the tiered pricing model. */
+export function calculatePressServiceQuote(
+  input: PressServiceQuoteInput,
+): PressServiceQuoteResult {
+  const { placements, quantity, colorCount, tier } = input;
+  const numPlacements = placements.length;
+
+  // Screen print side: per-location rate × # locations × quantity + one-time costs
+  const spRatePerLocation = getScreenPrintRate(colorCount);
+  let spPerShirt = 0;
+  for (const p of placements) {
+    const locationRate = spRatePerLocation + (p.isNonStandard ? SCREEN_PRINT_RATES.nonStandardSurcharge : 0);
+    const complexityMultiplier = PLACEMENT_TYPES[p.complexity]?.rateMultiplier ?? 1.0;
+    spPerShirt += locationRate * complexityMultiplier;
+  }
+  const spScreenCharges = SCREEN_PRINT_RATES.screenCharge * colorCount * numPlacements;
+  const spOrderTotal = round2(spPerShirt * quantity + spScreenCharges);
+
+  // DTF side: apply tier discount to screen print rate
+  const discountPercent = getColorTierDiscount(colorCount, tier);
+  const dtfPerShirt = round2(spPerShirt * (1 - discountPercent / 100));
+  const dtfOrderTotal = round2(dtfPerShirt * quantity);
+
+  // Cost: material + labor per placement per shirt
+  const costPerShirt = round2(DTF_COST_PER_PLACEMENT * numPlacements);
+
+  // Profitability
+  const grossProfitPerShirt = round2(dtfPerShirt - costPerShirt);
+  const grossMarginPercent = round2(safeDivide(grossProfitPerShirt, dtfPerShirt) * 100);
+  const meetsMarginFloor = grossMarginPercent >= GROSS_MARGIN_FLOOR;
+
+  // Customer savings
+  const customerSavingsPerShirt = round2(spPerShirt - dtfPerShirt);
+  const spTotalPerShirt = round2(spPerShirt + safeDivide(spScreenCharges, quantity));
+  const customerSavingsPercent = round2(safeDivide(customerSavingsPerShirt, spPerShirt) * 100);
+
+  return {
+    screenPrintPerLocation: round2(spRatePerLocation),
+    screenPrintScreenCharges: round2(spScreenCharges),
+    screenPrintTotalPerShirt: round2(spTotalPerShirt),
+    screenPrintOrderTotal: spOrderTotal,
+    discountPercent,
+    dtfPerShirt,
+    dtfOrderTotal,
+    customerSavingsPerShirt,
+    customerSavingsPercent,
+    costPerShirt,
+    grossProfitPerShirt,
+    grossMarginPercent,
+    meetsMarginFloor,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 9. Width Advantage Comparison
+// ---------------------------------------------------------------------------
+
+export function calculateWidthComparison(
+  ourRollCost: number = ROLL_WIDTH_OPTIONS.wide.rollCost,
+  ourWidth: number = ROLL_WIDTH_OPTIONS.wide.width,
+  ourRollLength: number = 325,
+  competitorRollCost: number = ROLL_WIDTH_OPTIONS.standard.rollCost,
+  competitorWidth: number = ROLL_WIDTH_OPTIONS.standard.width,
+  competitorRollLength: number = 30,
+): WidthComparisonResult {
+  const ourSqInPerFoot = ourWidth * 12;
+  const competitorSqInPerFoot = competitorWidth * 12;
+  const areaAdvantagePercent = round2(
+    ((ourSqInPerFoot - competitorSqInPerFoot) / competitorSqInPerFoot) * 100,
+  );
+
+  const ourTotalSqIn = ourWidth * ourRollLength * 12;
+  const competitorTotalSqIn = competitorWidth * competitorRollLength * 12;
+  const ourCostPerSqIn = round2(safeDivide(ourRollCost, ourTotalSqIn) * 10000) / 10000;
+  const competitorCostPerSqIn = round2(safeDivide(competitorRollCost, competitorTotalSqIn) * 10000) / 10000;
+  const costAdvantagePercent = round2(
+    ((competitorCostPerSqIn - ourCostPerSqIn) / competitorCostPerSqIn) * 100,
+  );
+
+  return {
+    ourWidth,
+    ourSqInPerFoot,
+    ourCostPerSqIn,
+    competitorWidth,
+    competitorSqInPerFoot,
+    competitorCostPerSqIn,
+    areaAdvantagePercent,
+    costAdvantagePercent,
   };
 }

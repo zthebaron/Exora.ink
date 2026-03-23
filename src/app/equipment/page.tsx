@@ -31,12 +31,12 @@ import {
 // ---------------------------------------------------------------------------
 
 const PRINTER = {
-  name: "Mimaki TxF150-75",
+  name: "Mimaki TxF300-75",
   type: "DTF Printer",
   image: null,
   specs: [
-    { label: "Print Width", value: '31.5" / 800 mm (max)' },
-    { label: "Media Width", value: 'Up to 32"' },
+    { label: "Printable Width", value: '30" / 762 mm (on 31" film)' },
+    { label: "Media Width", value: 'Up to 31"' },
     { label: "Resolution", value: "Up to 1,440 dpi" },
     { label: "Print Speed", value: "Up to 35.5 sq ft/hr" },
     { label: "Ink Type", value: "PHT50 pigment ink (CMYK + White)" },

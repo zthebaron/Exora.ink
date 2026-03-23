@@ -151,7 +151,7 @@ export function GangSheetCalculator() {
               value={assumptions.filmCostPerRoll}
               onChange={(v) => updateAssumption("filmCostPerRoll", v)}
               min={50}
-              max={150}
+              max={350}
               step={1}
               formatValue={(v) => formatCurrency(v)}
             />
@@ -160,7 +160,7 @@ export function GangSheetCalculator() {
               value={assumptions.inkCostPerMl}
               onChange={(v) => updateAssumption("inkCostPerMl", v)}
               min={0.03}
-              max={0.15}
+              max={0.25}
               step={0.01}
               formatValue={(v) => `$${v.toFixed(2)}`}
             />

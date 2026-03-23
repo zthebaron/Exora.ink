@@ -1,6 +1,7 @@
 "use client";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { IndividualTransfersCalculator } from "./individual-transfers-calculator";
 import { GangSheetCalculator } from "./gang-sheet-calculator";
 import { PressOnlyCalculator } from "./press-only-calculator";
 import { FullServiceCalculator } from "./full-service-calculator";
@@ -15,22 +16,27 @@ export default function CalculatorPage() {
             Pricing Calculators
           </h1>
           <p className="mt-2 text-lg text-muted-foreground">
-            Gang sheet profitability, press-only service, and full-service custom apparel pricing.
+            Individual transfers, gang sheets, tiered press service quoting, and full-service custom apparel.
           </p>
         </div>
 
-        <Tabs defaultValue="gang-sheets">
+        <Tabs defaultValue="individual-transfers">
           <TabsList className="mb-6 flex-wrap">
-            <TabsTrigger value="gang-sheets">Gang Sheet Pricing</TabsTrigger>
-            <TabsTrigger value="press-only">Press Only</TabsTrigger>
+            <TabsTrigger value="individual-transfers">Individual Transfers</TabsTrigger>
+            <TabsTrigger value="gang-sheets">Gang Sheets</TabsTrigger>
+            <TabsTrigger value="press-service">Press Service</TabsTrigger>
             <TabsTrigger value="full-service">Full Service</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="individual-transfers">
+            <IndividualTransfersCalculator />
+          </TabsContent>
 
           <TabsContent value="gang-sheets">
             <GangSheetCalculator />
           </TabsContent>
 
-          <TabsContent value="press-only">
+          <TabsContent value="press-service">
             <PressOnlyCalculator />
           </TabsContent>
 
