@@ -15,6 +15,7 @@ import { getDefaultAssumptions } from "@/lib/pricing-engine";
 import { GANG_SHEET_SIZES, VOLUME_DISCOUNT_TIERS, BRAND } from "@/lib/constants";
 import { formatCurrency, formatPercent } from "@/lib/formatters";
 import type { Assumptions } from "@/types";
+import Link from "next/link";
 import {
   Save,
   RotateCcw,
@@ -23,6 +24,8 @@ import {
   Tag,
   Percent,
   Building2,
+  Wand2,
+  Wrench,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -234,6 +237,9 @@ export default function AdminPage() {
           </TabsTrigger>
           <TabsTrigger value="content" className="gap-1.5">
             <Settings className="h-4 w-4" /> Content &amp; Guides
+          </TabsTrigger>
+          <TabsTrigger value="tools" className="gap-1.5">
+            <Wrench className="h-4 w-4" /> Tools
           </TabsTrigger>
         </TabsList>
 
@@ -964,6 +970,38 @@ export default function AdminPage() {
             >
               <RotateCcw className="h-4 w-4" /> Lock All Editing
             </button>
+          </div>
+        </TabsContent>
+
+        {/* ================================================================ */}
+        {/* TAB 6: TOOLS                                                     */}
+        {/* ================================================================ */}
+        <TabsContent value="tools" className="space-y-6">
+          <p className="text-sm text-muted-foreground">
+            Internal utilities for prepping artwork and customer assets. Admin-only.
+          </p>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Link
+              href="/admin/background-remover"
+              className="group block rounded-xl border bg-card p-5 transition-colors hover:border-teal-500/50 hover:bg-muted/50"
+            >
+              <div className="flex items-start gap-4">
+                <div className="rounded-lg bg-teal-500/10 p-3 text-teal-600 transition-colors group-hover:bg-teal-500/20 dark:text-teal-400">
+                  <Wand2 className="h-6 w-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-base font-semibold">Background Remover</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Upload a product shot or customer artwork and get a transparent PNG back.
+                    Powered by remove.bg.
+                  </p>
+                  <p className="mt-2 text-xs font-medium text-teal-600 dark:text-teal-400">
+                    Open tool &rarr;
+                  </p>
+                </div>
+              </div>
+            </Link>
           </div>
         </TabsContent>
       </Tabs>
