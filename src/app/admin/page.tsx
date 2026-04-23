@@ -24,10 +24,9 @@ import {
   Tag,
   Percent,
   Building2,
-  Wand2,
   Wrench,
-  Sparkles,
 } from "lucide-react";
+import { ADMIN_TOOLS, ADMIN_TOOL_ACCENT_CLASSES } from "@/lib/admin-tools";
 
 // ---------------------------------------------------------------------------
 // Assumption field definitions grouped by category
@@ -983,47 +982,35 @@ export default function AdminPage() {
           </p>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Link
-              href="/admin/background-remover"
-              className="group block rounded-xl border bg-card p-5 transition-colors hover:border-teal-500/50 hover:bg-muted/50"
-            >
-              <div className="flex items-start gap-4">
-                <div className="rounded-lg bg-teal-500/10 p-3 text-teal-600 transition-colors group-hover:bg-teal-500/20 dark:text-teal-400">
-                  <Wand2 className="h-6 w-6" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-base font-semibold">Background Remover</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Upload a product shot or customer artwork and get a transparent PNG back.
-                    Powered by remove.bg.
-                  </p>
-                  <p className="mt-2 text-xs font-medium text-teal-600 dark:text-teal-400">
-                    Open tool &rarr;
-                  </p>
-                </div>
-              </div>
-            </Link>
-
-            <Link
-              href="/admin/image-studio"
-              className="group block rounded-xl border bg-card p-5 transition-colors hover:border-amber-500/50 hover:bg-muted/50"
-            >
-              <div className="flex items-start gap-4">
-                <div className="rounded-lg bg-amber-500/10 p-3 text-amber-600 transition-colors group-hover:bg-amber-500/20 dark:text-amber-400">
-                  <Sparkles className="h-6 w-6" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-base font-semibold">Image Studio</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Generate artwork from prompts or edit existing images. Powered by Google Gemini
-                    2.5 Flash Image (Nano Banana).
-                  </p>
-                  <p className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-400">
-                    Open tool &rarr;
-                  </p>
-                </div>
-              </div>
-            </Link>
+            {ADMIN_TOOLS.map((tool) => {
+              const accent = ADMIN_TOOL_ACCENT_CLASSES[tool.accent];
+              const Icon = tool.icon;
+              return (
+                <Link
+                  key={tool.id}
+                  href={tool.href}
+                  className={`group block rounded-xl border bg-card p-5 transition-colors hover:bg-muted/50 ${accent.border}`}
+                >
+                  <div className="flex items-start gap-4">
+                    <div
+                      className={`rounded-lg p-3 transition-colors ${accent.bg} ${accent.text} ${accent.textDark} ${accent.bgHover}`}
+                    >
+                      <Icon className="h-6 w-6" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-base font-semibold">{tool.label}</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {tool.description}
+                        {tool.poweredBy ? ` Powered by ${tool.poweredBy}.` : ""}
+                      </p>
+                      <p className={`mt-2 text-xs font-medium ${accent.text} ${accent.textDark}`}>
+                        Open tool &rarr;
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </TabsContent>
       </Tabs>

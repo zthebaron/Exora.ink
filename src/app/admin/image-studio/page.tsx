@@ -12,6 +12,7 @@ import {
   formatPrintSize,
   type ImageMetadata,
 } from "@/lib/image-metadata";
+import { ToolsNav } from "@/components/admin/tools-nav";
 
 type Mode = "generate" | "edit";
 
@@ -276,6 +277,8 @@ export default function ImageStudioPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <ToolsNav currentTool="image-studio" />
+
         <div className="mb-8">
           <div className="flex items-center gap-2">
             <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">

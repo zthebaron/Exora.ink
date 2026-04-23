@@ -12,6 +12,7 @@ import {
   formatPrintSize,
   type ImageMetadata,
 } from "@/lib/image-metadata";
+import { ToolsNav } from "@/components/admin/tools-nav";
 
 type SizeOption = "preview" | "auto" | "full";
 type FormatOption = "png" | "jpg";
@@ -131,6 +132,8 @@ export default function BackgroundRemoverPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <ToolsNav currentTool="background-remover" />
+
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             Background Remover
