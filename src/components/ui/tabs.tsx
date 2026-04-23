@@ -28,8 +28,10 @@ function Tabs({ defaultValue, value, onValueChange, className, children, ...prop
   const [internalTab, setInternalTab] = useState(defaultValue ?? value ?? "");
   const activeTab = value !== undefined ? value : internalTab;
   const setActiveTab = (v: string) => {
+    // Uncontrolled: update internal state. Controlled: parent manages `value`.
+    if (value === undefined) setInternalTab(v);
+    // Always notify the parent if they subscribed to changes.
     if (onValueChange) onValueChange(v);
-    else setInternalTab(v);
   };
 
   return (

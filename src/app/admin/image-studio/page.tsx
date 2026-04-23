@@ -13,6 +13,7 @@ import {
   type ImageMetadata,
 } from "@/lib/image-metadata";
 import { ToolsNav } from "@/components/admin/tools-nav";
+import { PromptBuilder } from "@/components/admin/prompt-builder";
 
 type Mode = "generate" | "edit";
 
@@ -103,7 +104,6 @@ const EDIT_PRESETS: PresetGroup[] = [
   {
     label: "DTF Prep",
     presets: [
-      { label: "Replace background with magenta", prompt: "Replace the background completely with solid pure magenta #FF00FF. Preserve the foreground artwork edges exactly. Do not change foreground colors. Do not add a drop shadow. Ensure no edge fringe, glow, or semi-transparent halo against the magenta." },
       { label: "Add white underbase", prompt: "Prepare this artwork for DTF printing on a dark garment by adding a solid white underbase layer behind all colored elements, slightly inset by 1px so it doesn't show around the edges. Keep the foreground artwork identical. Output PNG with transparency." },
       { label: "Convert to 2-color", prompt: "Reduce this design to exactly 2 flat colors (black and white), preserving shapes and key details. Remove gradients, halftones, and soft shading. Output as a flat magenta-backgrounded image ready for 2-color DTF." },
       { label: "Vectorize look", prompt: "Redraw this raster image in a clean flat vector style: hard edges, solid fills, no noise, no gradients. Preserve the composition and colors. Output as a flat magenta-backgrounded image suitable for DTF transfer." },
@@ -407,6 +407,8 @@ export default function ImageStudioPage() {
                   </CardContent>
                 </Card>
               </TabsContent>
+
+              <PromptBuilder mode={mode} onApply={(p) => setPrompt(p)} />
 
               <Card>
                 <CardHeader>
