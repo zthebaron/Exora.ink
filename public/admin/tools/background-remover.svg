@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 240" width="480" height="240" role="img" aria-label="Background Remover thumbnail">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0F766E"/>
+      <stop offset="100%" stop-color="#042f2e"/>
+    </linearGradient>
+    <pattern id="checker" width="20" height="20" patternUnits="userSpaceOnUse">
+      <rect width="10" height="10" fill="#ffffff" fill-opacity="0.10"/>
+      <rect x="10" width="10" height="10" fill="#ffffff" fill-opacity="0.04"/>
+      <rect y="10" width="10" height="10" fill="#ffffff" fill-opacity="0.04"/>
+      <rect x="10" y="10" width="10" height="10" fill="#ffffff" fill-opacity="0.10"/>
+    </pattern>
+    <clipPath id="shirtClip">
+      <path d="M140 80 L170 62 L200 70 C210 75, 230 75, 240 70 L270 62 L300 80 L310 108 L285 120 L285 170 L155 170 L155 120 L130 108 Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background panel -->
+  <rect width="480" height="240" fill="url(#bg)"/>
+
+  <!-- Soft radial glow -->
+  <circle cx="360" cy="120" r="140" fill="#14B8A6" opacity="0.12"/>
+  <circle cx="140" cy="90" r="90" fill="#0EA5E9" opacity="0.10"/>
+
+  <!-- Left pane: busy photo background represented by shapes -->
+  <rect x="30" y="40" width="200" height="160" rx="12" fill="#1e293b"/>
+  <circle cx="80" cy="90" r="28" fill="#f97316" opacity="0.85"/>
+  <rect x="120" y="70" width="100" height="40" fill="#ef4444" opacity="0.7"/>
+  <rect x="50" y="130" width="170" height="18" fill="#22c55e" opacity="0.7"/>
+  <rect x="50" y="160" width="120" height="10" fill="#eab308" opacity="0.7"/>
+
+  <!-- Shirt silhouette overlaid on left -->
+  <g clip-path="url(#shirtClip)" transform="translate(-100 0)">
+    <rect x="0" y="0" width="480" height="240" fill="#0f172a" opacity="0.6"/>
+  </g>
+
+  <!-- Arrow -->
+  <g transform="translate(240 120)">
+    <circle r="22" fill="#14B8A6"/>
+    <path d="M-9 0 L7 0 M2 -6 L8 0 L2 6" stroke="#042f2e" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Right pane: checker transparency with clean shirt -->
+  <rect x="270" y="40" width="180" height="160" rx="12" fill="#0b1220"/>
+  <rect x="270" y="40" width="180" height="160" rx="12" fill="url(#checker)"/>
+  <g transform="translate(170 0)">
+    <path d="M140 80 L170 62 L200 70 C210 75, 230 75, 240 70 L270 62 L300 80 L310 108 L285 120 L285 170 L155 170 L155 120 L130 108 Z"
+      fill="#e2e8f0"/>
+    <path d="M200 70 C210 75, 230 75, 240 70 L232 92 L208 92 Z" fill="#94a3b8"/>
+  </g>
+
+  <!-- Label -->
+  <text x="30" y="28" fill="#5eead4" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="700" letter-spacing="1.5">BACKGROUND REMOVER</text>
+</svg>

@@ -6,6 +6,8 @@ export interface AdminTool {
   href: string;
   description: string;
   icon: LucideIcon;
+  /** Thumbnail image shown on the Tools tab grid. 2:1 aspect SVG in /public. */
+  image: string;
   /** Tailwind color class name stem (e.g. "teal", "amber") */
   accent: "teal" | "amber" | "sky" | "emerald" | "rose" | "indigo";
   poweredBy?: string;
@@ -20,6 +22,7 @@ export const ADMIN_TOOLS: AdminTool[] = [
     description:
       "Upload a product shot or customer artwork and get a transparent PNG back.",
     icon: Wand2,
+    image: "/admin/tools/background-remover.svg",
     accent: "teal",
     poweredBy: "remove.bg",
   },
@@ -30,6 +33,7 @@ export const ADMIN_TOOLS: AdminTool[] = [
     description:
       "Generate artwork from prompts or edit existing images. Gemini 2.5 Flash Image (Nano Banana).",
     icon: Sparkles,
+    image: "/admin/tools/image-studio.svg",
     accent: "amber",
     poweredBy: "Google Gemini",
   },

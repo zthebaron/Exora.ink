@@ -989,9 +989,19 @@ export default function AdminPage() {
                 <Link
                   key={tool.id}
                   href={tool.href}
-                  className={`group block rounded-xl border bg-card p-5 transition-colors hover:bg-muted/50 ${accent.border}`}
+                  className={`group block overflow-hidden rounded-xl border bg-card transition-colors hover:bg-muted/50 ${accent.border}`}
                 >
-                  <div className="flex items-start gap-4">
+                  {/* Hero image */}
+                  <div className="relative aspect-[2/1] w-full overflow-hidden bg-muted">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={tool.image}
+                      alt=""
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                  </div>
+                  {/* Body */}
+                  <div className="flex items-start gap-4 p-5">
                     <div
                       className={`rounded-lg p-3 transition-colors ${accent.bg} ${accent.text} ${accent.textDark} ${accent.bgHover}`}
                     >

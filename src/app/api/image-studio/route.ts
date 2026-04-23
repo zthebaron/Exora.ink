@@ -8,6 +8,23 @@ export const maxDuration = 120;
 // and image editing.
 const MODEL = "gemini-2.5-flash-image";
 
+/**
+ * Mandatory chroma-key requirement appended to every prompt.
+ *
+ * DTF production rule: the background must be pure magenta (#FF00FF) and
+ * the foreground artwork must never contain that exact color. This lets the
+ * downstream workflow key out the magenta cleanly without halo artifacts.
+ * True "transparent" PNGs from image generators often have anti-aliased
+ * alpha fringing that causes white halos when printed on dark garments.
+ */
+const CHROMA_KEY_SUFFIX = `
+
+MANDATORY OUTPUT REQUIREMENTS (DTF print production):
+- The background MUST be a solid flat magenta fill at exactly #FF00FF (rgb 255, 0, 255). No gradient, no vignette, no shadow, no texture — pure uniform magenta.
+- The foreground artwork MUST NOT contain any pixel of #FF00FF or any magenta/fuchsia shade close to it. If the design calls for pink, use a different hue (e.g. #FF69B4 hot pink or #FF1493 deep pink), never pure magenta.
+- Keep edges hard and crisp against the magenta background. Do not anti-alias into magenta, do not leave a semi-transparent fringe, glow, or halo. Every pixel should be either fully opaque foreground or fully #FF00FF background.
+- Output a flat rectangular image — do not return a transparent PNG. The magenta is the background.`;
+
 export async function POST(request: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
   if (!apiKey) {
@@ -35,9 +52,11 @@ export async function POST(request: NextRequest) {
   }
 
   // Build content parts. Edit mode attaches the source image(s).
+  // Chroma-key suffix is appended server-side so the rule is always enforced.
+  const fullPrompt = `${prompt.trim()}${CHROMA_KEY_SUFFIX}`;
   const parts: Array<
     { text: string } | { inlineData: { mimeType: string; data: string } }
-  > = [{ text: prompt }];
+  > = [{ text: fullPrompt }];
 
   if (mode === "edit") {
     const images = form.getAll("image").filter((v): v is File => v instanceof File);
