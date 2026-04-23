@@ -5,6 +5,13 @@ import { Download, ImageIcon, Loader2, Trash2, Upload, Wand2 } from "lucide-reac
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import {
+  getImageMetadata,
+  formatBytes,
+  formatDpi,
+  formatPrintSize,
+  type ImageMetadata,
+} from "@/lib/image-metadata";
 
 type SizeOption = "preview" | "auto" | "full";
 type FormatOption = "png" | "jpg";
@@ -26,6 +33,9 @@ export default function BackgroundRemoverPage() {
   const [type, setType] = useState<TypeOption>("auto");
   const [bgColor, setBgColor] = useState<string>("");
 
+  const [originalMeta, setOriginalMeta] = useState<ImageMetadata | null>(null);
+  const [resultMeta, setResultMeta] = useState<ImageMetadata | null>(null);
+
   const accept = useMemo(() => "image/png,image/jpeg,image/webp", []);
 
   const reset = useCallback(() => {
@@ -37,6 +47,8 @@ export default function BackgroundRemoverPage() {
     setResultBlob(null);
     setCredits(null);
     setError(null);
+    setOriginalMeta(null);
+    setResultMeta(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, [originalUrl, resultUrl]);
 
@@ -56,9 +68,14 @@ export default function BackgroundRemoverPage() {
       setError(null);
       setResultUrl(null);
       setResultBlob(null);
+      setResultMeta(null);
       setCredits(null);
       setFile(next);
       setOriginalUrl(URL.createObjectURL(next));
+      setOriginalMeta(null);
+      getImageMetadata(next)
+        .then(setOriginalMeta)
+        .catch(() => setOriginalMeta(null));
     },
     [originalUrl, resultUrl]
   );
@@ -87,6 +104,10 @@ export default function BackgroundRemoverPage() {
       setResultBlob(blob);
       setResultUrl(URL.createObjectURL(blob));
       setCredits(res.headers.get("X-Credits-Charged"));
+      setResultMeta(null);
+      getImageMetadata(blob)
+        .then(setResultMeta)
+        .catch(() => setResultMeta(null));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to remove background");
     } finally {
@@ -285,11 +306,12 @@ export default function BackgroundRemoverPage() {
               </div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2">
-                <PreviewCard title="Original" src={originalUrl} />
+                <PreviewCard title="Original" src={originalUrl} meta={originalMeta} />
                 <PreviewCard
                   title="Background Removed"
                   src={resultUrl}
                   transparent
+                  meta={resultMeta}
                   placeholder={
                     loading ? (
                       <div className="flex flex-col items-center gap-2 text-muted-foreground">
@@ -341,11 +363,13 @@ function PreviewCard({
   src,
   transparent,
   placeholder,
+  meta,
 }: {
   title: string;
   src: string | null;
   transparent?: boolean;
   placeholder?: React.ReactNode;
+  meta?: ImageMetadata | null;
 }) {
   return (
     <Card className="overflow-hidden">
@@ -372,6 +396,42 @@ function PreviewCard({
             placeholder
           )}
         </div>
+        {meta ? (
+          <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+            <div className="flex items-center justify-between gap-2 rounded-md bg-muted/50 px-2.5 py-1.5">
+              <dt className="text-muted-foreground">Resolution</dt>
+              <dd className="font-medium tabular-nums text-foreground">
+                {meta.width.toLocaleString()} × {meta.height.toLocaleString()} px
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-2 rounded-md bg-muted/50 px-2.5 py-1.5">
+              <dt className="text-muted-foreground">Size</dt>
+              <dd className="font-medium tabular-nums text-foreground">{formatBytes(meta.bytes)}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-2 rounded-md bg-muted/50 px-2.5 py-1.5">
+              <dt className="text-muted-foreground">DPI</dt>
+              <dd
+                className={cn(
+                  "font-medium tabular-nums",
+                  meta.dpiAssumed ? "text-amber-500" : "text-foreground"
+                )}
+                title={meta.dpiAssumed ? "No embedded DPI — assumed 72" : undefined}
+              >
+                {formatDpi(meta)}
+                {meta.dpiAssumed ? " *" : ""}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-2 rounded-md bg-muted/50 px-2.5 py-1.5">
+              <dt className="text-muted-foreground">Print Size</dt>
+              <dd className="font-medium tabular-nums text-foreground">{formatPrintSize(meta)}</dd>
+            </div>
+          </dl>
+        ) : src ? (
+          <div className="mt-3 flex items-center justify-center gap-2 rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Reading metadata…
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

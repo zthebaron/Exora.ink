@@ -26,6 +26,7 @@ import {
   Building2,
   Wand2,
   Wrench,
+  Sparkles,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -997,6 +998,27 @@ export default function AdminPage() {
                     Powered by remove.bg.
                   </p>
                   <p className="mt-2 text-xs font-medium text-teal-600 dark:text-teal-400">
+                    Open tool &rarr;
+                  </p>
+                </div>
+              </div>
+            </Link>
+
+            <Link
+              href="/admin/image-studio"
+              className="group block rounded-xl border bg-card p-5 transition-colors hover:border-amber-500/50 hover:bg-muted/50"
+            >
+              <div className="flex items-start gap-4">
+                <div className="rounded-lg bg-amber-500/10 p-3 text-amber-600 transition-colors group-hover:bg-amber-500/20 dark:text-amber-400">
+                  <Sparkles className="h-6 w-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-base font-semibold">Image Studio</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Generate artwork from prompts or edit existing images. Powered by Google Gemini
+                    2.5 Flash Image (Nano Banana).
+                  </p>
+                  <p className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-400">
                     Open tool &rarr;
                   </p>
                 </div>
