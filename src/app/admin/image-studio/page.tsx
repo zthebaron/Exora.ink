@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Download, ImageIcon, Loader2, Sparkles, Trash2, Upload, Wand2, X } from "lucide-react";
+import { AlertTriangle, Download, ImageIcon, Loader2, Sparkles, Trash2, Undo2, Upload, Wand2, X } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -143,6 +143,8 @@ export default function ImageStudioPage() {
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [haloInspected, setHaloInspected] = useState(false);
+  const [refining, setRefining] = useState(false);
+  const [previousPrompt, setPreviousPrompt] = useState<string | null>(null);
 
   const accept = useMemo(() => "image/png,image/jpeg,image/webp", []);
 
@@ -259,6 +261,42 @@ export default function ImageStudioPage() {
       setLoading(false);
     }
   }, [mode, prompt, sourceFiles, resultUrl]);
+
+  const refinePrompt = useCallback(async () => {
+    const current = prompt.trim();
+    if (!current) {
+      setError("Write a rough prompt first, then refine it.");
+      return;
+    }
+    setRefining(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/image-studio/refine", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode, prompt: current }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(data.error || `Refine failed (${res.status})`);
+      }
+      const data: { refinedPrompt?: string } = await res.json();
+      const refined = (data.refinedPrompt || "").trim();
+      if (!refined) throw new Error("Empty refinement returned");
+      setPreviousPrompt(current);
+      setPrompt(refined);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to refine prompt");
+    } finally {
+      setRefining(false);
+    }
+  }, [mode, prompt]);
+
+  const undoRefine = useCallback(() => {
+    if (previousPrompt === null) return;
+    setPrompt(previousPrompt);
+    setPreviousPrompt(null);
+  }, [previousPrompt]);
 
   const download = useCallback(() => {
     if (!resultBlob) return;
@@ -422,7 +460,11 @@ export default function ImageStudioPage() {
                 <CardContent className="space-y-3">
                   <textarea
                     value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
+                    onChange={(e) => {
+                      setPrompt(e.target.value);
+                      // Manual edit invalidates the prior refine snapshot.
+                      if (previousPrompt !== null) setPreviousPrompt(null);
+                    }}
                     rows={6}
                     placeholder={
                       mode === "generate"
@@ -431,18 +473,59 @@ export default function ImageStudioPage() {
                     }
                     className="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   />
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                     <span>{prompt.length}/4000</span>
-                    {prompt && (
+                    <div className="flex items-center gap-3">
                       <button
                         type="button"
-                        onClick={() => setPrompt("")}
-                        className="hover:text-foreground"
+                        onClick={refinePrompt}
+                        disabled={!prompt.trim() || refining}
+                        title="Rewrite your prompt with Gemini for sharper, DTF-tuned results"
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-700 transition-colors",
+                          "hover:bg-amber-500/20 dark:text-amber-400",
+                          "disabled:cursor-not-allowed disabled:opacity-50"
+                        )}
                       >
-                        Clear
+                        {refining ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Refining…
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-3 w-3" />
+                            Refine with AI
+                          </>
+                        )}
                       </button>
-                    )}
+                      {prompt && (
+                        <button
+                          type="button"
+                          onClick={() => setPrompt("")}
+                          className="hover:text-foreground"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
                   </div>
+
+                  {previousPrompt !== null && (
+                    <div className="flex items-center justify-between gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-2.5 py-1.5 text-xs">
+                      <span className="text-emerald-700 dark:text-emerald-400">
+                        ✨ Prompt refined by AI
+                      </span>
+                      <button
+                        type="button"
+                        onClick={undoRefine}
+                        className="inline-flex items-center gap-1 font-medium text-emerald-700 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300"
+                      >
+                        <Undo2 className="h-3 w-3" />
+                        Undo
+                      </button>
+                    </div>
+                  )}
 
                   <div className="space-y-3">
                     <p className="text-xs font-medium text-muted-foreground">Presets</p>
