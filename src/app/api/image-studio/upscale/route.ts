@@ -3,6 +3,7 @@ import sharp from "sharp";
 import { upscaleImage } from "@/lib/upscale/real-esrgan";
 import { runQC } from "@/lib/qc/qc-engine";
 import { PRINT_TARGETS } from "@/lib/qc/types";
+import { formatUpstreamError } from "@/lib/api-errors";
 import { db } from "@/db";
 import { imageGenerations } from "@/db/schema";
 
@@ -49,8 +50,13 @@ export async function POST(request: NextRequest) {
   try {
     upscaleResult = await upscaleImage(dataUri, sourceWidth, sourceHeight, targetMin);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Upscaling failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const formatted = formatUpstreamError(err);
+    const headers: Record<string, string> = {};
+    if (formatted.retryAfterSec) headers["Retry-After"] = String(formatted.retryAfterSec);
+    return NextResponse.json(
+      { error: formatted.message, kind: formatted.kind, retryAfterSec: formatted.retryAfterSec },
+      { status: formatted.status, headers }
+    );
   }
 
   // Fetch the result, run QC, and stream back.

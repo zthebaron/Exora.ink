@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
+import { formatUpstreamError } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -82,7 +83,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ refinedPrompt: refined });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown Gemini error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const formatted = formatUpstreamError(err);
+    const headers: Record<string, string> = {};
+    if (formatted.retryAfterSec) headers["Retry-After"] = String(formatted.retryAfterSec);
+    return NextResponse.json(
+      { error: formatted.message, kind: formatted.kind, retryAfterSec: formatted.retryAfterSec },
+      { status: formatted.status, headers }
+    );
   }
 }
