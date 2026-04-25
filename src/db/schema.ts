@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, real, integer, jsonb, uuid, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, real, integer, jsonb, uuid, boolean, varchar, decimal } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -97,4 +97,26 @@ export const companySettings = pgTable("company_settings", {
   key: text("key").notNull().unique(),
   value: jsonb("value").notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Image Studio — every Gemini image generation (and upscale derivative) is
+// recorded here for cost tracking, QC history, and re-fetching.
+export const imageGenerations = pgTable("image_generations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").references(() => users.id),
+  prompt: text("prompt").notNull(),
+  tier: varchar("tier", { length: 20 }).notNull(), // 'preview' | 'production' | 'upscale'
+  model: varchar("model", { length: 64 }).notNull(),
+  resolution: varchar("resolution", { length: 20 }), // '1K' | '2K' | '4K'
+  aspectRatio: varchar("aspect_ratio", { length: 10 }),
+  printTarget: varchar("print_target", { length: 64 }),
+  imageUrl: text("image_url").notNull(),
+  widthPx: integer("width_px"),
+  heightPx: integer("height_px"),
+  effectiveDpi: integer("effective_dpi"),
+  qcResults: jsonb("qc_results"),
+  upscaled: boolean("upscaled").default(false),
+  upscaleParentId: uuid("upscale_parent_id"),
+  costUsd: decimal("cost_usd", { precision: 10, scale: 4 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });

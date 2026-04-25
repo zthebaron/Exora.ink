@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Download, ImageIcon, Loader2, Sparkles, Trash2, Undo2, Upload, Wand2, X } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
@@ -14,6 +15,12 @@ import {
 } from "@/lib/image-metadata";
 import { ToolsNav } from "@/components/admin/tools-nav";
 import { PromptBuilder } from "@/components/admin/prompt-builder";
+import { TierToggle, type GenerationTier } from "@/components/admin/tier-toggle";
+import { PrintTargetSelector } from "@/components/admin/print-target-selector";
+import { ImageQCPanel } from "@/components/admin/image-qc-panel";
+import { CostTracker } from "@/components/admin/cost-tracker";
+import type { QCResult, PrintTarget } from "@/lib/qc/types";
+import { PRINT_TARGETS } from "@/lib/qc/types";
 
 type Mode = "generate" | "edit";
 
@@ -145,6 +152,14 @@ export default function ImageStudioPage() {
   const [haloInspected, setHaloInspected] = useState(false);
   const [refining, setRefining] = useState(false);
   const [previousPrompt, setPreviousPrompt] = useState<string | null>(null);
+  const [tier, setTier] = useState<GenerationTier>("preview");
+  const [aspectRatio, setAspectRatio] = useState<"1:1" | "3:4" | "4:3" | "9:16" | "16:9">("1:1");
+  const [printTarget, setPrintTarget] = useState<PrintTarget>(PRINT_TARGETS[1]);
+  const [qcResult, setQcResult] = useState<QCResult | null>(null);
+  const [generationId, setGenerationId] = useState<string | null>(null);
+  const [costBumpKey, setCostBumpKey] = useState(0);
+  const [upscaling, setUpscaling] = useState(false);
+  const [lastCost, setLastCost] = useState<number | null>(null);
 
   const accept = useMemo(() => "image/png,image/jpeg,image/webp", []);
 
@@ -165,6 +180,9 @@ export default function ImageStudioPage() {
     setModelText("");
     setError(null);
     setHaloInspected(false);
+    setQcResult(null);
+    setGenerationId(null);
+    setLastCost(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, [revokeAll]);
 
@@ -235,6 +253,9 @@ export default function ImageStudioPage() {
       const body = new FormData();
       body.append("mode", mode);
       body.append("prompt", prompt);
+      body.append("tier", tier);
+      body.append("aspectRatio", aspectRatio);
+      body.append("printTarget", printTarget.id);
       if (mode === "edit") {
         sourceFiles.forEach((f) => body.append("image", f));
       }
@@ -253,6 +274,23 @@ export default function ImageStudioPage() {
       getImageMetadata(blob)
         .then(setResultMeta)
         .catch(() => setResultMeta(null));
+
+      // Parse QC + cost from response headers
+      const qcHeader = res.headers.get("X-QC-Result");
+      if (qcHeader) {
+        try {
+          setQcResult(JSON.parse(decodeURIComponent(qcHeader)) as QCResult);
+        } catch {
+          setQcResult(null);
+        }
+      } else {
+        setQcResult(null);
+      }
+      const costHeader = res.headers.get("X-Cost-Usd");
+      if (costHeader) setLastCost(parseFloat(costHeader));
+      setGenerationId(res.headers.get("X-Generation-Id"));
+      setCostBumpKey((k) => k + 1);
+
       const encodedText = res.headers.get("X-Model-Text");
       setModelText(encodedText ? decodeURIComponent(encodedText) : "");
     } catch (e) {
@@ -260,7 +298,7 @@ export default function ImageStudioPage() {
     } finally {
       setLoading(false);
     }
-  }, [mode, prompt, sourceFiles, resultUrl]);
+  }, [mode, prompt, tier, aspectRatio, printTarget, sourceFiles, resultUrl]);
 
   const refinePrompt = useCallback(async () => {
     const current = prompt.trim();
@@ -291,6 +329,50 @@ export default function ImageStudioPage() {
       setRefining(false);
     }
   }, [mode, prompt]);
+
+  const upscaleResult = useCallback(async () => {
+    if (!resultBlob) return;
+    setUpscaling(true);
+    setError(null);
+    try {
+      const body = new FormData();
+      body.append("image", resultBlob, "source.png");
+      body.append("printTarget", printTarget.id);
+      if (generationId) body.append("parentId", generationId);
+
+      const res = await fetch("/api/image-studio/upscale", { method: "POST", body });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(data.error || `Upscale failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      if (resultUrl) URL.revokeObjectURL(resultUrl);
+      setResultBlob(blob);
+      setResultUrl(URL.createObjectURL(blob));
+      setResultMeta(null);
+      setHaloInspected(false);
+      getImageMetadata(blob)
+        .then(setResultMeta)
+        .catch(() => setResultMeta(null));
+
+      const qcHeader = res.headers.get("X-QC-Result");
+      if (qcHeader) {
+        try {
+          setQcResult(JSON.parse(decodeURIComponent(qcHeader)) as QCResult);
+        } catch {
+          setQcResult(null);
+        }
+      }
+      const costHeader = res.headers.get("X-Cost-Usd");
+      if (costHeader) setLastCost(parseFloat(costHeader));
+      setGenerationId(res.headers.get("X-Generation-Id"));
+      setCostBumpKey((k) => k + 1);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upscale failed");
+    } finally {
+      setUpscaling(false);
+    }
+  }, [resultBlob, printTarget.id, generationId, resultUrl]);
 
   const undoRefine = useCallback(() => {
     if (previousPrompt === null) return;
@@ -328,15 +410,16 @@ export default function ImageStudioPage() {
           <div className="flex items-center gap-2">
             <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
               <Sparkles className="h-3 w-3" />
-              Nano Banana · Gemini 2.5 Flash Image
+              Nano Banana · Preview + Pro 4K
             </div>
           </div>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             Image Studio
           </h1>
           <p className="mt-2 text-lg text-muted-foreground">
-            Generate new artwork from prompts or edit existing images with Google&apos;s Gemini image model.
-            Ideal for mocking up DTF transfers, iterating on customer concepts, and producing blog hero images.
+            Iterate at 1K with the Preview tier, then promote to 4K Production when the look is locked.
+            Every result runs through DTF QC: dimensions, effective DPI, transparency, color mode,
+            edge bleed, and file size — with one-click upscaling when you need more pixels.
           </p>
         </div>
 
@@ -352,9 +435,48 @@ export default function ImageStudioPage() {
             <TabsTrigger value="edit">Edit / Remix</TabsTrigger>
           </TabsList>
 
-          <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
+          <div className="grid gap-6 lg:grid-cols-[360px_1fr_280px]">
             {/* Controls */}
             <div className="space-y-6">
+              {/* Tier */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Generation Tier</CardTitle>
+                  <CardDescription>Iterate cheap, then promote to 4K.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <TierToggle tier={tier} onChange={setTier} disabled={loading || upscaling} />
+                </CardContent>
+              </Card>
+
+              {/* Print target + aspect ratio */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Print Target</CardTitle>
+                  <CardDescription>Drives effective-DPI gating and upscale targets.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <PrintTargetSelector value={printTarget} onChange={setPrintTarget} />
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                      Aspect Ratio
+                    </label>
+                    <Select
+                      value={aspectRatio}
+                      onChange={(e) =>
+                        setAspectRatio(e.target.value as typeof aspectRatio)
+                      }
+                    >
+                      <option value="1:1">1:1 (square)</option>
+                      <option value="4:3">4:3 (landscape)</option>
+                      <option value="3:4">3:4 (portrait)</option>
+                      <option value="16:9">16:9 (wide)</option>
+                      <option value="9:16">9:16 (tall)</option>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+
               <TabsContent value="edit" className="mt-0">
                 <Card>
                   <CardHeader>
@@ -561,19 +683,34 @@ export default function ImageStudioPage() {
                     disabled={loading || !prompt.trim() || (mode === "edit" && sourceFiles.length === 0)}
                     className={cn(
                       "flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors",
-                      "bg-primary text-primary-foreground hover:bg-primary/90",
+                      tier === "production"
+                        ? "bg-amber-600 text-white hover:bg-amber-700"
+                        : "bg-primary text-primary-foreground hover:bg-primary/90",
                       "disabled:cursor-not-allowed disabled:opacity-50"
                     )}
                   >
                     {loading ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Generating…
+                        {tier === "production" ? "Generating Final 4K…" : "Generating Preview…"}
                       </>
                     ) : (
                       <>
-                        <Wand2 className="h-4 w-4" />
-                        {mode === "generate" ? "Generate Image" : "Apply Edit"}
+                        {tier === "production" ? (
+                          <Sparkles className="h-4 w-4" />
+                        ) : (
+                          <Wand2 className="h-4 w-4" />
+                        )}
+                        {tier === "production"
+                          ? mode === "generate"
+                            ? "Generate Final 4K"
+                            : "Apply Edit (4K)"
+                          : mode === "generate"
+                          ? "Generate Preview"
+                          : "Apply Edit (Preview)"}
+                        <span className="ml-1 rounded-full bg-black/15 px-2 py-0.5 text-[10px] font-medium tabular-nums">
+                          ~${tier === "production" ? "0.24" : "0.04"}
+                        </span>
                       </>
                     )}
                   </button>
@@ -722,14 +859,44 @@ export default function ImageStudioPage() {
                       <span className="font-semibold text-foreground">Model note:</span> {modelText}
                     </div>
                   )}
+
+                  {(lastCost !== null || (qcResult && qcResult.printTarget)) && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                      {lastCost !== null && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 font-medium text-emerald-700 dark:text-emerald-400">
+                          ${lastCost.toFixed(4)} {tier === "production" ? "· 4K Production" : tier === "preview" ? "· 1K Preview" : "· Upscale"}
+                        </span>
+                      )}
+                      {qcResult && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2.5 py-1 font-medium text-sky-700 dark:text-sky-400">
+                          Target: {qcResult.printTarget.label}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
+
+              {/* QC Panel */}
+              {resultBlob && (
+                <ImageQCPanel
+                  qc={qcResult}
+                  onUpscale={upscaleResult}
+                  upscaleAvailable={!!resultBlob && !upscaling}
+                  upscaling={upscaling}
+                />
+              )}
 
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">Tips</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm text-muted-foreground">
+                  <p>
+                    • <strong>Iterate on Preview, finalize on Production.</strong> Preview tier is
+                    1K and ~$0.04 — perfect for prompt and composition exploration. Production tier
+                    is 4K and ~$0.24 — only run it when the look is locked.
+                  </p>
                   <p>
                     • <strong>Chroma-key is enforced server-side</strong>: every request asks for a
                     solid #FF00FF magenta background and forbids that color in the foreground. Keys
@@ -741,16 +908,16 @@ export default function ImageStudioPage() {
                     garments.
                   </p>
                   <p>
-                    • Describe <strong>size intent</strong> — e.g. &ldquo;10-inch back print&rdquo;
-                    or &ldquo;3-inch left chest&rdquo; — so the model sizes the composition
-                    appropriately.
-                  </p>
-                  <p>
-                    • Edit mode lets you pass multiple source images to combine (e.g. &ldquo;place
-                    this logo on this shirt&rdquo;).
+                    • The <strong>Effective DPI</strong> check is the real gate, not the metadata
+                    DPI tag. If it fails, hit the upscale button.
                   </p>
                 </CardContent>
               </Card>
+            </div>
+
+            {/* Sidebar */}
+            <div className="space-y-4">
+              <CostTracker refreshKey={costBumpKey} />
             </div>
           </div>
         </Tabs>
