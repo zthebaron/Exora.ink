@@ -5,10 +5,16 @@
  * When we drop a print-ready PNG into that folder, the RIP picks it up
  * and processes it for printing.
  *
- * Auth: this uses a long-lived Dropbox access token in DROPBOX_ACCESS_TOKEN.
- * For production, switch to a refresh-token flow with DROPBOX_APP_KEY +
- * DROPBOX_APP_SECRET + DROPBOX_REFRESH_TOKEN — Dropbox short-lived tokens
- * expire after 4 hours.
+ * Auth — preferred path:
+ *   DROPBOX_APP_KEY      — public app identifier
+ *   DROPBOX_APP_SECRET   — app secret (private)
+ *   DROPBOX_REFRESH_TOKEN — long-lived refresh token (one-time OAuth via
+ *                           /admin/dropbox-auth)
+ * The SDK auto-mints fresh access tokens from the refresh token. No manual
+ * rotation needed.
+ *
+ * Fallback path (testing only):
+ *   DROPBOX_ACCESS_TOKEN — short-lived token (4 hours), expires.
  */
 
 import { Dropbox, type files } from "dropbox";
@@ -24,14 +30,44 @@ export interface HotFolderUploadResult {
 
 const DEFAULT_FOLDER = "/Apps/Exora-RIP/hot";
 
-function getClient(): Dropbox {
-  const token = process.env.DROPBOX_ACCESS_TOKEN;
-  if (!token) {
-    throw new Error(
-      "Hot folder is not configured. Set DROPBOX_ACCESS_TOKEN in the environment."
-    );
+export function getDropboxAuthState():
+  | { mode: "refresh"; ready: true }
+  | { mode: "access-token"; ready: true }
+  | { mode: "none"; ready: false; missing: string[] } {
+  const refreshToken = process.env.DROPBOX_REFRESH_TOKEN;
+  const appKey = process.env.DROPBOX_APP_KEY;
+  const appSecret = process.env.DROPBOX_APP_SECRET;
+  const accessToken = process.env.DROPBOX_ACCESS_TOKEN;
+
+  if (refreshToken && appKey && appSecret) {
+    return { mode: "refresh", ready: true };
   }
-  return new Dropbox({ accessToken: token });
+  if (accessToken) {
+    return { mode: "access-token", ready: true };
+  }
+
+  const missing: string[] = [];
+  if (!appKey) missing.push("DROPBOX_APP_KEY");
+  if (!appSecret) missing.push("DROPBOX_APP_SECRET");
+  if (!refreshToken) missing.push("DROPBOX_REFRESH_TOKEN");
+  return { mode: "none", ready: false, missing };
+}
+
+function getClient(): Dropbox {
+  const state = getDropboxAuthState();
+  if (state.mode === "refresh") {
+    return new Dropbox({
+      refreshToken: process.env.DROPBOX_REFRESH_TOKEN,
+      clientId: process.env.DROPBOX_APP_KEY,
+      clientSecret: process.env.DROPBOX_APP_SECRET,
+    });
+  }
+  if (state.mode === "access-token") {
+    return new Dropbox({ accessToken: process.env.DROPBOX_ACCESS_TOKEN });
+  }
+  throw new Error(
+    `Hot folder is not configured. Set up Dropbox via /admin/dropbox-auth or define ${state.missing.join(", ")}.`
+  );
 }
 
 function getFolder(): string {

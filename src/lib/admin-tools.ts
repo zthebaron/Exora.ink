@@ -1,4 +1,4 @@
-import { Wand2, Sparkles, type LucideIcon } from "lucide-react";
+import { Wand2, Sparkles, Cloud, type LucideIcon } from "lucide-react";
 
 export interface AdminTool {
   id: string;
@@ -36,6 +36,17 @@ export const ADMIN_TOOLS: AdminTool[] = [
     image: "/admin/tools/image-studio.svg",
     accent: "amber",
     poweredBy: "Google Gemini",
+  },
+  {
+    id: "dropbox-auth",
+    label: "Dropbox Hot Folder",
+    href: "/admin/dropbox-auth",
+    description:
+      "One-time OAuth setup so the Image Studio can ship finished files to a Dropbox folder for the RIP machine.",
+    icon: Cloud,
+    image: "/admin/tools/dropbox-auth.svg",
+    accent: "sky",
+    poweredBy: "Dropbox",
   },
 ];
 

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 240" width="480" height="240" role="img" aria-label="Dropbox Auth thumbnail">
+  <defs>
+    <linearGradient id="dbxbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B4F6C"/>
+      <stop offset="100%" stop-color="#031D2E"/>
+    </linearGradient>
+    <linearGradient id="cloudGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#60A5FA"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="480" height="240" fill="url(#dbxbg)"/>
+  <circle cx="380" cy="60" r="80" fill="#3B82F6" opacity="0.18"/>
+  <circle cx="80" cy="200" r="100" fill="#0EA5E9" opacity="0.12"/>
+
+  <!-- Dropbox-like quad icon (geometric) -->
+  <g transform="translate(110 80) scale(1.1)">
+    <path d="M0 0 L40 -25 L80 0 L40 25 Z" fill="#3B82F6" opacity="0.95"/>
+    <path d="M80 0 L120 -25 L160 0 L120 25 Z" fill="#3B82F6" opacity="0.95"/>
+    <path d="M0 50 L40 25 L80 50 L40 75 Z" fill="#60A5FA" opacity="0.95"/>
+    <path d="M80 50 L120 25 L160 50 L120 75 Z" fill="#60A5FA" opacity="0.95"/>
+    <path d="M40 80 L80 55 L120 80 L80 105 Z" fill="#93C5FD" opacity="0.85"/>
+  </g>
+
+  <!-- Refresh arrow + "REFRESH TOKEN" tag -->
+  <g transform="translate(330 110)">
+    <circle r="34" fill="url(#cloudGrad)" />
+    <g transform="rotate(-30)">
+      <path
+        d="M-14 -2 A 14 14 0 1 1 0 14"
+        fill="none"
+        stroke="white"
+        stroke-width="3.5"
+        stroke-linecap="round"
+      />
+      <polygon points="-2,-10 6,-2 -2,6" fill="white"/>
+    </g>
+  </g>
+
+  <!-- Label -->
+  <text x="30" y="28" fill="#93C5FD" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="700" letter-spacing="1.5">DROPBOX HOT FOLDER</text>
+  <text x="30" y="220" fill="#93C5FD" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" font-weight="500" letter-spacing="0.5" opacity="0.7">Connect once · refresh tokens · auto-rotate</text>
+</svg>
