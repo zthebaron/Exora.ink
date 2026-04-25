@@ -8,6 +8,13 @@
       "when": 1777132643490,
       "tag": "0000_add_image_generations",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777134961735,
+      "tag": "0001_add_prompt_favorites",
+      "breakpoints": true
     }
   ]
 }

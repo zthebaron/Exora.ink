@@ -99,6 +99,14 @@ export const companySettings = pgTable("company_settings", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Image Studio — pinned/favorited prompts. Single-tenant for now (no user
+// scope). Unique on `prompt` so toggling is idempotent.
+export const promptFavorites = pgTable("prompt_favorites", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  prompt: text("prompt").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Image Studio — every Gemini image generation (and upscale derivative) is
 // recorded here for cost tracking, QC history, and re-fetching.
 export const imageGenerations = pgTable("image_generations", {

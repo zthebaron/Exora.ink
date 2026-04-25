@@ -575,6 +575,7 @@ export default function ImageStudioPage() {
                   setPrompt(p);
                   setPreviousPrompt(null);
                 }}
+                onChange={() => setCostBumpKey((k) => k + 1)}
               />
 
               <PromptBuilder mode={mode} onApply={(p) => setPrompt(p)} />
