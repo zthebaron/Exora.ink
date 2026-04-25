@@ -15,6 +15,7 @@ import {
 } from "@/lib/image-metadata";
 import { ToolsNav } from "@/components/admin/tools-nav";
 import { PromptBuilder } from "@/components/admin/prompt-builder";
+import { PromptHistory } from "@/components/admin/prompt-history";
 import { TierToggle, type GenerationTier } from "@/components/admin/tier-toggle";
 import { PrintTargetSelector } from "@/components/admin/print-target-selector";
 import { ImageQCPanel } from "@/components/admin/image-qc-panel";
@@ -567,6 +568,14 @@ export default function ImageStudioPage() {
                   </CardContent>
                 </Card>
               </TabsContent>
+
+              <PromptHistory
+                refreshKey={costBumpKey}
+                onApply={(p) => {
+                  setPrompt(p);
+                  setPreviousPrompt(null);
+                }}
+              />
 
               <PromptBuilder mode={mode} onApply={(p) => setPrompt(p)} />
 
