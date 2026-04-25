@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Download, ImageIcon, Loader2, Sparkles, Trash2, Undo2, Upload, Wand2, X } from "lucide-react";
+import { AlertTriangle, Check, Cloud, Download, Eraser, ImageIcon, Loader2, Sparkles, Trash2, Undo2, Upload, Wand2, X } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -20,6 +20,7 @@ import { TierToggle, type GenerationTier } from "@/components/admin/tier-toggle"
 import { PrintTargetSelector } from "@/components/admin/print-target-selector";
 import { ImageQCPanel } from "@/components/admin/image-qc-panel";
 import { CostTracker } from "@/components/admin/cost-tracker";
+import { PipelineStepper, type PipelineStage } from "@/components/admin/pipeline-stepper";
 import type { QCResult, PrintTarget } from "@/lib/qc/types";
 import { PRINT_TARGETS } from "@/lib/qc/types";
 
@@ -161,6 +162,11 @@ export default function ImageStudioPage() {
   const [costBumpKey, setCostBumpKey] = useState(0);
   const [upscaling, setUpscaling] = useState(false);
   const [lastCost, setLastCost] = useState<number | null>(null);
+  const [keyedOut, setKeyedOut] = useState(false);
+  const [keying, setKeying] = useState(false);
+  const [shipping, setShipping] = useState(false);
+  const [shipped, setShipped] = useState<{ path: string; shareLink: string | null } | null>(null);
+  const [lastResultTier, setLastResultTier] = useState<"preview" | "production" | null>(null);
 
   const accept = useMemo(() => "image/png,image/jpeg,image/webp", []);
 
@@ -184,6 +190,9 @@ export default function ImageStudioPage() {
     setQcResult(null);
     setGenerationId(null);
     setLastCost(null);
+    setKeyedOut(false);
+    setShipped(null);
+    setLastResultTier(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, [revokeAll]);
 
@@ -272,6 +281,9 @@ export default function ImageStudioPage() {
       setResultUrl(URL.createObjectURL(blob));
       setResultMeta(null);
       setHaloInspected(false); // fresh result — operator must re-inspect
+      setKeyedOut(false); // new image is back to magenta-bg
+      setShipped(null);
+      setLastResultTier(tier);
       getImageMetadata(blob)
         .then(setResultMeta)
         .catch(() => setResultMeta(null));
@@ -352,6 +364,8 @@ export default function ImageStudioPage() {
       setResultUrl(URL.createObjectURL(blob));
       setResultMeta(null);
       setHaloInspected(false);
+      setKeyedOut(false); // upscale operates on magenta-bg image; result is also magenta
+      setShipped(null);
       getImageMetadata(blob)
         .then(setResultMeta)
         .catch(() => setResultMeta(null));
@@ -374,6 +388,77 @@ export default function ImageStudioPage() {
       setUpscaling(false);
     }
   }, [resultBlob, printTarget.id, generationId, resultUrl]);
+
+  const keyOutBackground = useCallback(async () => {
+    if (!resultBlob || keyedOut) return;
+    setKeying(true);
+    setError(null);
+    try {
+      const body = new FormData();
+      body.append("image", resultBlob, "magenta.png");
+      body.append("printTarget", printTarget.id);
+
+      const res = await fetch("/api/image-studio/key-out", { method: "POST", body });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(data.error || `Key-out failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      if (resultUrl) URL.revokeObjectURL(resultUrl);
+      setResultBlob(blob);
+      setResultUrl(URL.createObjectURL(blob));
+      setResultMeta(null);
+      setKeyedOut(true);
+      setHaloInspected(false); // operator re-inspects post-key
+      getImageMetadata(blob)
+        .then(setResultMeta)
+        .catch(() => setResultMeta(null));
+
+      const qcHeader = res.headers.get("X-QC-Result");
+      if (qcHeader) {
+        try {
+          setQcResult(JSON.parse(decodeURIComponent(qcHeader)) as QCResult);
+        } catch {
+          /* ignore */
+        }
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Key-out failed");
+    } finally {
+      setKeying(false);
+    }
+  }, [resultBlob, keyedOut, printTarget.id, resultUrl]);
+
+  const sendToHotFolder = useCallback(async () => {
+    if (!resultBlob || !haloInspected) {
+      if (!haloInspected) setError("Confirm halo inspection before shipping.");
+      return;
+    }
+    setShipping(true);
+    setError(null);
+    try {
+      const baseName =
+        mode === "edit" && sourceFiles[0]
+          ? sourceFiles[0].name.replace(/\.[^.]+$/, "") + "-final"
+          : "exora-dtf-" + Date.now();
+      const filename = `${baseName}.png`;
+
+      const body = new FormData();
+      body.append("image", resultBlob, filename);
+      body.append("filename", filename);
+
+      const res = await fetch("/api/image-studio/hot-folder", { method: "POST", body });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || `Hot-folder upload failed (${res.status})`);
+      }
+      setShipped({ path: data.path, shareLink: data.shareLink ?? null });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Hot-folder upload failed");
+    } finally {
+      setShipping(false);
+    }
+  }, [resultBlob, haloInspected, mode, sourceFiles]);
 
   const undoRefine = useCallback(() => {
     if (previousPrompt === null) return;
@@ -398,7 +483,10 @@ export default function ImageStudioPage() {
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  }, [resultBlob, mode, sourceFiles, haloInspected]);
+    if (!shipped) {
+      setShipped({ path: "[local download]", shareLink: null });
+    }
+  }, [resultBlob, mode, sourceFiles, haloInspected, shipped]);
 
   const presetGroups = mode === "generate" ? GENERATE_PRESETS : EDIT_PRESETS;
 
@@ -422,6 +510,25 @@ export default function ImageStudioPage() {
             Every result runs through DTF QC: dimensions, effective DPI, transparency, color mode,
             edge bleed, and file size — with one-click upscaling when you need more pixels.
           </p>
+        </div>
+
+        {/* Pipeline stepper */}
+        <div className="mb-6">
+          <PipelineStepper
+            stage={
+              shipped
+                ? "shipped"
+                : keyedOut
+                ? "keyed"
+                : lastResultTier === "production"
+                ? "production"
+                : resultBlob
+                ? "preview-done"
+                : "preview"
+            }
+            tier={tier}
+            onSelectStage={(s) => setTier(s)}
+          />
         </div>
 
         <Tabs
@@ -772,6 +879,85 @@ export default function ImageStudioPage() {
                     <Download className="h-4 w-4" />
                     Download Result
                   </button>
+
+                  {resultBlob && (
+                    <button
+                      onClick={keyOutBackground}
+                      disabled={keying || keyedOut}
+                      title={keyedOut ? "Already keyed — magenta has been removed" : "Replace #FF00FF magenta background with transparent pixels"}
+                      className={cn(
+                        "flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors",
+                        keyedOut
+                          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                          : "bg-rose-600 text-white hover:bg-rose-700",
+                        "disabled:cursor-not-allowed disabled:opacity-50"
+                      )}
+                    >
+                      {keying ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Keying out magenta…
+                        </>
+                      ) : keyedOut ? (
+                        <>
+                          <Check className="h-4 w-4" />
+                          Magenta keyed out
+                        </>
+                      ) : (
+                        <>
+                          <Eraser className="h-4 w-4" />
+                          Key Out Magenta Background
+                        </>
+                      )}
+                    </button>
+                  )}
+
+                  {resultBlob && keyedOut && haloInspected && (
+                    <button
+                      onClick={sendToHotFolder}
+                      disabled={shipping || !!shipped}
+                      title="Upload to the configured Dropbox hot folder"
+                      className={cn(
+                        "flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors",
+                        shipped
+                          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                          : "bg-emerald-600 text-white hover:bg-emerald-700",
+                        "disabled:cursor-not-allowed disabled:opacity-50"
+                      )}
+                    >
+                      {shipping ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Sending to Hot Folder…
+                        </>
+                      ) : shipped ? (
+                        <>
+                          <Check className="h-4 w-4" />
+                          Sent to Hot Folder
+                        </>
+                      ) : (
+                        <>
+                          <Cloud className="h-4 w-4" />
+                          Send to Hot Folder
+                        </>
+                      )}
+                    </button>
+                  )}
+
+                  {shipped && shipped.shareLink && (
+                    <a
+                      href={shipped.shareLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-between gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-400"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Cloud className="h-3.5 w-3.5" />
+                        <span className="truncate">{shipped.path}</span>
+                      </span>
+                      <span className="shrink-0 font-medium">Open in Dropbox →</span>
+                    </a>
+                  )}
 
                   <button
                     onClick={reset}
