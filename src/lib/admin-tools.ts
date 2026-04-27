@@ -1,4 +1,4 @@
-import { Wand2, Sparkles, Cloud, type LucideIcon } from "lucide-react";
+import { Wand2, Sparkles, Cloud, BookOpen, type LucideIcon } from "lucide-react";
 
 export interface AdminTool {
   id: string;
@@ -47,6 +47,16 @@ export const ADMIN_TOOLS: AdminTool[] = [
     image: "/admin/tools/dropbox-auth.svg",
     accent: "sky",
     poweredBy: "Dropbox",
+  },
+  {
+    id: "sops",
+    label: "SOPs & Docs",
+    href: "/admin/sops",
+    description:
+      "Editable internal standard operating procedures and reference docs. Markdown-based with live preview.",
+    icon: BookOpen,
+    image: "/admin/tools/sops.svg",
+    accent: "indigo",
   },
 ];
 

@@ -99,6 +99,29 @@ export const companySettings = pgTable("company_settings", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Editable internal docs / SOPs surfaced under /admin/sops/[slug]. Markdown
+// content stored as text; revisions live in `sopRevisions` for history.
+export const sops = pgTable("sops", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  slug: varchar("slug", { length: 128 }).notNull().unique(),
+  title: text("title").notNull(),
+  subtitle: text("subtitle"),
+  version: varchar("version", { length: 32 }),
+  owner: text("owner"),
+  effective: text("effective"),
+  contentMd: text("content_md").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const sopRevisions = pgTable("sop_revisions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  sopId: uuid("sop_id").references(() => sops.id, { onDelete: "cascade" }).notNull(),
+  contentMd: text("content_md").notNull(),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Image Studio — pinned/favorited prompts. Single-tenant for now (no user
 // scope). Unique on `prompt` so toggling is idempotent.
 export const promptFavorites = pgTable("prompt_favorites", {
