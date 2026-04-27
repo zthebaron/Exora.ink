@@ -97,6 +97,82 @@ body {
   }
 }
 
+/* Markdown rendering for SOPs (no @tailwindcss/typography in this project) */
+.sop-content h1,
+.sop-content h2,
+.sop-content h3,
+.sop-content h4 {
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--foreground);
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  scroll-margin-top: 5rem;
+}
+.sop-content h1 { font-size: 1.875rem; }
+.sop-content h2 { font-size: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+.sop-content h3 { font-size: 1.25rem; }
+.sop-content h4 { font-size: 1.05rem; }
+.sop-content p { margin: 0.85rem 0; line-height: 1.7; color: var(--foreground); }
+.sop-content ul,
+.sop-content ol { margin: 0.85rem 0; padding-left: 1.5rem; }
+.sop-content ul { list-style: disc; }
+.sop-content ol { list-style: decimal; }
+.sop-content li { margin: 0.35rem 0; line-height: 1.6; }
+.sop-content li > p { margin: 0.25rem 0; }
+.sop-content strong { font-weight: 700; color: var(--foreground); }
+.sop-content em { font-style: italic; }
+.sop-content a { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; }
+.sop-content a:hover { opacity: 0.8; }
+.sop-content code {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  background: var(--muted);
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+}
+.sop-content pre {
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin: 1rem 0;
+  overflow-x: auto;
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+.sop-content pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+.sop-content blockquote {
+  border-left: 4px solid var(--primary);
+  background: color-mix(in oklab, var(--primary) 8%, transparent);
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border-radius: 0 0.5rem 0.5rem 0;
+  color: var(--foreground);
+}
+.sop-content blockquote p { margin: 0.25rem 0; }
+.sop-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+.sop-content th,
+.sop-content td {
+  border: 1px solid var(--border);
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+.sop-content th { background: var(--muted); font-weight: 600; }
+.sop-content tbody tr:nth-child(even) { background: color-mix(in oklab, var(--muted) 40%, transparent); }
+.sop-content hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+
 .checkerboard {
   background-color: #ffffff;
   background-image:
