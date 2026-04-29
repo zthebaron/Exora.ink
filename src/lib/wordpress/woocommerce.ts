@@ -1,15 +1,24 @@
 /**
  * WooCommerce orders client for exora.ink.
  *
- * Auth model: WordPress Application Passwords (HTTP Basic with the user's
- * login + an app password generated under Users → Profile → Application
- * Passwords on the WP admin). This works for the WooCommerce REST API
- * because Application Passwords authenticate AS the user, who has WC perms.
+ * Auth — two supported modes (Consumer Key/Secret preferred):
  *
- * Env vars:
- *   EXORA_WP_URL          — base, e.g. https://exora.ink (no trailing slash)
- *   EXORA_WP_USERNAME     — WP admin username
- *   EXORA_WP_APP_PASSWORD — application password (with or without spaces)
+ *   Mode A (preferred — native WooCommerce auth):
+ *     EXORA_WP_URL    — base, e.g. https://exora.ink
+ *     EXORA_WC_KEY    — Consumer Key (ck_...) from WooCommerce → Settings →
+ *                       Advanced → REST API
+ *     EXORA_WC_SECRET — Consumer Secret (cs_...)
+ *
+ *   Mode B (fallback — WP Application Password):
+ *     EXORA_WP_URL          — base
+ *     EXORA_WP_USERNAME     — WP admin username
+ *     EXORA_WP_APP_PASSWORD — application password (with or without spaces)
+ *
+ * Why prefer A: the WooCommerce permission layer recognizes Consumer Key
+ * sessions as "first-class" and grants manage_woocommerce automatically.
+ * Application-Password sessions sometimes get treated as guests by the
+ * woocommerce_rest_check_permissions filter even when the user is an admin,
+ * yielding 401 woocommerce_rest_cannot_view errors.
  */
 
 export interface WooLineItem {
@@ -86,8 +95,11 @@ export interface ListOrdersResult {
   totalPages: number;
 }
 
+export type WooAuthMode = "consumer-key" | "app-password" | "none";
+
 export interface WooConfigState {
   ready: boolean;
+  mode: WooAuthMode;
   baseUrl: string | null;
   username: string | null;
   missing: string[];
@@ -95,28 +107,64 @@ export interface WooConfigState {
 
 export function getWooConfig(): WooConfigState {
   const baseUrl = process.env.EXORA_WP_URL?.replace(/\/+$/, "") ?? null;
+  const wcKey = process.env.EXORA_WC_KEY;
+  const wcSecret = process.env.EXORA_WC_SECRET;
   const username = process.env.EXORA_WP_USERNAME ?? null;
-  const password = process.env.EXORA_WP_APP_PASSWORD ?? null;
+  const appPassword = process.env.EXORA_WP_APP_PASSWORD;
+
+  // Prefer Consumer Key/Secret (native WooCommerce auth) when present.
+  if (baseUrl && wcKey && wcSecret) {
+    return { ready: true, mode: "consumer-key", baseUrl, username, missing: [] };
+  }
+  // Fallback to Application Password.
+  if (baseUrl && username && appPassword) {
+    return { ready: true, mode: "app-password", baseUrl, username, missing: [] };
+  }
 
   const missing: string[] = [];
   if (!baseUrl) missing.push("EXORA_WP_URL");
-  if (!username) missing.push("EXORA_WP_USERNAME");
-  if (!password) missing.push("EXORA_WP_APP_PASSWORD");
-
-  return {
-    ready: missing.length === 0,
-    baseUrl,
-    username,
-    missing,
-  };
+  // Suggest the preferred path first.
+  missing.push("EXORA_WC_KEY", "EXORA_WC_SECRET");
+  return { ready: false, mode: "none", baseUrl, username, missing };
 }
 
-function authHeader(): string {
-  const username = process.env.EXORA_WP_USERNAME ?? "";
-  // App passwords often display with spaces ("xxxx xxxx xxxx") — normalize.
-  const password = (process.env.EXORA_WP_APP_PASSWORD ?? "").replace(/\s+/g, "");
-  const token = Buffer.from(`${username}:${password}`).toString("base64");
-  return `Basic ${token}`;
+/**
+ * Build the request headers (and any URL params) for the active auth mode.
+ * Returns the final URL + headers so callers don't need to know the mode.
+ */
+function authedRequest(url: string): { url: string; headers: HeadersInit } {
+  const cfg = getWooConfig();
+
+  if (cfg.mode === "consumer-key") {
+    // Consumer Key/Secret over HTTPS — use HTTP Basic Auth (the WC-recommended
+    // pattern for HTTPS endpoints, much simpler than OAuth1.0a).
+    const key = process.env.EXORA_WC_KEY ?? "";
+    const secret = process.env.EXORA_WC_SECRET ?? "";
+    const token = Buffer.from(`${key}:${secret}`).toString("base64");
+    return {
+      url,
+      headers: {
+        Authorization: `Basic ${token}`,
+        Accept: "application/json",
+      },
+    };
+  }
+
+  if (cfg.mode === "app-password") {
+    const username = process.env.EXORA_WP_USERNAME ?? "";
+    const password = (process.env.EXORA_WP_APP_PASSWORD ?? "").replace(/\s+/g, "");
+    const token = Buffer.from(`${username}:${password}`).toString("base64");
+    return {
+      url,
+      headers: {
+        Authorization: `Basic ${token}`,
+        Accept: "application/json",
+      },
+    };
+  }
+
+  // No auth configured — caller will hit a "not configured" branch first.
+  return { url, headers: { Accept: "application/json" } };
 }
 
 /**
@@ -148,14 +196,9 @@ export async function listOrders(params: ListOrdersParams = {}): Promise<ListOrd
   if (params.orderBy) search.set("orderby", params.orderBy);
   if (params.order) search.set("order", params.order);
 
-  const url = `${cfg.baseUrl}/wp-json/wc/v3/orders?${search.toString()}`;
-  const res = await fetch(url, {
-    headers: {
-      Authorization: authHeader(),
-      Accept: "application/json",
-    },
-    cache: "no-store",
-  });
+  const requestUrl = `${cfg.baseUrl}/wp-json/wc/v3/orders?${search.toString()}`;
+  const { url, headers } = authedRequest(requestUrl);
+  const res = await fetch(url, { headers, cache: "no-store" });
 
   if (!res.ok) {
     const text = await res.text();
@@ -178,11 +221,9 @@ export async function getOrder(id: number): Promise<WooOrder> {
     throw new Error(`WooCommerce not configured. Missing: ${cfg.missing.join(", ")}`);
   }
 
-  const url = `${cfg.baseUrl}/wp-json/wc/v3/orders/${id}`;
-  const res = await fetch(url, {
-    headers: { Authorization: authHeader(), Accept: "application/json" },
-    cache: "no-store",
-  });
+  const requestUrl = `${cfg.baseUrl}/wp-json/wc/v3/orders/${id}`;
+  const { url, headers } = authedRequest(requestUrl);
+  const res = await fetch(url, { headers, cache: "no-store" });
 
   if (!res.ok) {
     const text = await res.text();
