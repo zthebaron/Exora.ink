@@ -151,3 +151,53 @@ export const imageGenerations = pgTable("image_generations", {
   costUsd: decimal("cost_usd", { precision: 10, scale: 4 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// ---------------------------------------------------------------------------
+// Custom orders — manually-entered orders that don't come from exora.ink
+// (phone, email, walk-in, invoice). Mirrors the WooCommerce vocabulary for
+// status so operators have one mental model across both dashboards.
+// ---------------------------------------------------------------------------
+export const customOrders = pgTable("custom_orders", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  /** Human-readable order number, auto-generated like "C-1042". */
+  orderNumber: text("order_number").notNull().unique(),
+  status: varchar("status", { length: 20 }).notNull().default("processing"),
+  /** Origin / how the order came in. */
+  source: varchar("source", { length: 32 }).default("manual"),
+  // Customer
+  customerName: text("customer_name").notNull(),
+  customerEmail: text("customer_email"),
+  customerPhone: text("customer_phone"),
+  customerCompany: text("customer_company"),
+  // Shipping (free-form text — keep it simple)
+  shippingAddress: text("shipping_address"),
+  // Money
+  total: decimal("total", { precision: 10, scale: 2 }).notNull().default("0.00"),
+  currency: varchar("currency", { length: 8 }).notNull().default("USD"),
+  paymentMethod: text("payment_method"),
+  paymentReceived: boolean("payment_received").default(false).notNull(),
+  // Notes
+  customerNote: text("customer_note"),
+  internalNotes: text("internal_notes"),
+  // Lifecycle
+  dueDate: timestamp("due_date", { mode: "date" }),
+  completedAt: timestamp("completed_at"),
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const customOrderItems = pgTable("custom_order_items", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orderId: uuid("order_id")
+    .notNull()
+    .references(() => customOrders.id, { onDelete: "cascade" }),
+  /** Description of the item — free-form (e.g. "10x12 DTF transfer, 2 colors"). */
+  name: text("name").notNull(),
+  sku: text("sku"),
+  quantity: integer("quantity").notNull().default(1),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull().default("0.00"),
+  total: decimal("total", { precision: 10, scale: 2 }).notNull().default("0.00"),
+  notes: text("notes"),
+  position: integer("position").default(0).notNull(),
+});

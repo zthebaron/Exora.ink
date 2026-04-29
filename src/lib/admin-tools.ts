@@ -1,4 +1,4 @@
-import { Wand2, Sparkles, Cloud, BookOpen, ClipboardList, type LucideIcon } from "lucide-react";
+import { Wand2, Sparkles, Cloud, BookOpen, ClipboardList, ClipboardEdit, type LucideIcon } from "lucide-react";
 
 export interface AdminTool {
   id: string;
@@ -25,6 +25,17 @@ export const ADMIN_TOOLS: AdminTool[] = [
     image: "/admin/tools/orders.svg",
     accent: "emerald",
     poweredBy: "exora.ink (WooCommerce)",
+  },
+  {
+    id: "custom-orders",
+    label: "Custom Orders",
+    href: "/admin/custom-orders",
+    description:
+      "Manually-entered orders that don't come from the website — phone, email, walk-in, invoice. Full CRUD with line items.",
+    icon: ClipboardEdit,
+    image: "/admin/tools/custom-orders.svg",
+    accent: "sky",
+    poweredBy: "Neon Postgres",
   },
   {
     id: "background-remover",
