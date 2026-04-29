@@ -1,4 +1,4 @@
-import { Wand2, Sparkles, Cloud, BookOpen, type LucideIcon } from "lucide-react";
+import { Wand2, Sparkles, Cloud, BookOpen, ClipboardList, type LucideIcon } from "lucide-react";
 
 export interface AdminTool {
   id: string;
@@ -15,6 +15,17 @@ export interface AdminTool {
 
 /** Registry of admin tools — consumed by both the admin Tools tab and the cross-tool nav. */
 export const ADMIN_TOOLS: AdminTool[] = [
+  {
+    id: "orders",
+    label: "Orders Dashboard",
+    href: "/admin/orders",
+    description:
+      "Live production view of orders from exora.ink — status filters, customer details, and line items.",
+    icon: ClipboardList,
+    image: "/admin/tools/orders.svg",
+    accent: "emerald",
+    poweredBy: "exora.ink (WooCommerce)",
+  },
   {
     id: "background-remover",
     label: "Background Remover",
