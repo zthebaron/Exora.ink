@@ -13,6 +13,7 @@ import {
   type ImageMetadata,
 } from "@/lib/image-metadata";
 import { ToolsNav } from "@/components/admin/tools-nav";
+import { ToolFeedback } from "@/components/admin/tool-feedback";
 
 type SizeOption = "preview" | "auto" | "full";
 type FormatOption = "png" | "jpg";
@@ -356,6 +357,8 @@ export default function BackgroundRemoverPage() {
             </Card>
           </div>
         </div>
+
+        <ToolFeedback toolId="background-remover" toolLabel="Background Remover" />
       </div>
     </div>
   );

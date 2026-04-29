@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ToolsNav } from "@/components/admin/tools-nav";
+import { ToolFeedback } from "@/components/admin/tool-feedback";
 import { formatCurrency } from "@/lib/formatters";
 import {
   CUSTOM_ORDER_STATUSES,
@@ -405,6 +406,8 @@ export default function CustomOrdersPage() {
             </div>
           </div>
         )}
+
+        <ToolFeedback toolId="custom-orders" toolLabel="Custom Orders" />
 
         {/* Create / edit drawer */}
         {drawer.mode !== "closed" && (

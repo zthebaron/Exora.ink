@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BookOpen, FileText, Loader2, Plus, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToolsNav } from "@/components/admin/tools-nav";
+import { ToolFeedback } from "@/components/admin/tool-feedback";
 import { cn } from "@/lib/utils";
 
 interface SopRow {
@@ -161,6 +162,8 @@ export default function SopsIndexPage() {
             ))}
           </div>
         )}
+
+        <ToolFeedback toolId="sops" toolLabel="SOPs" />
       </div>
     </div>
   );

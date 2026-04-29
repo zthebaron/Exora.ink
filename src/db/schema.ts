@@ -187,6 +187,20 @@ export const customOrders = pgTable("custom_orders", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Per-tool operator feedback / notes — running comment thread on each
+// admin tool page. Single-tenant for now (no userId), author is a free-form
+// string so operators can identify themselves without auth.
+export const toolFeedback = pgTable("tool_feedback", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  /** Identifier of the tool — matches AdminTool.id (e.g. "orders", "image-studio"). */
+  toolId: varchar("tool_id", { length: 64 }).notNull(),
+  /** Free-form name; defaults to "Anonymous" client-side if blank. */
+  author: text("author"),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const customOrderItems = pgTable("custom_order_items", {
   id: uuid("id").defaultRandom().primaryKey(),
   orderId: uuid("order_id")

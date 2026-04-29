@@ -14,6 +14,7 @@ import {
   type ImageMetadata,
 } from "@/lib/image-metadata";
 import { ToolsNav } from "@/components/admin/tools-nav";
+import { ToolFeedback } from "@/components/admin/tool-feedback";
 import { PromptBuilder } from "@/components/admin/prompt-builder";
 import { PromptHistory } from "@/components/admin/prompt-history";
 import { TierToggle, type GenerationTier } from "@/components/admin/tier-toggle";
@@ -1117,6 +1118,8 @@ export default function ImageStudioPage() {
             </div>
           </div>
         </Tabs>
+
+        <ToolFeedback toolId="image-studio" toolLabel="Image Studio" />
       </div>
     </div>
   );

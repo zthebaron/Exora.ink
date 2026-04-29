@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ToolsNav } from "@/components/admin/tools-nav";
+import { ToolFeedback } from "@/components/admin/tool-feedback";
 import { buildAuthorizeUrl } from "@/lib/dropbox/oauth";
 
 type Status =
@@ -371,6 +372,8 @@ DROPBOX_APP_SECRET=your_app_secret`}</pre>
             </CardContent>
           </Card>
         )}
+
+        <ToolFeedback toolId="dropbox-auth" toolLabel="Dropbox Hot Folder" />
       </div>
     </div>
   );

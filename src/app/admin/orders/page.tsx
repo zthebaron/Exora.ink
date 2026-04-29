@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ToolsNav } from "@/components/admin/tools-nav";
+import { ToolFeedback } from "@/components/admin/tool-feedback";
 import { formatCurrency } from "@/lib/formatters";
 import type { WooOrder, OrderStats } from "@/lib/wordpress/woocommerce";
 
@@ -379,6 +380,8 @@ export default function OrdersDashboardPage() {
             </div>
           </div>
         )}
+
+        <ToolFeedback toolId="orders" toolLabel="Orders Dashboard" />
 
         {/* Detail drawer */}
         {selected && (
