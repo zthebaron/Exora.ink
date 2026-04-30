@@ -1,4 +1,4 @@
-import { Wand2, Sparkles, Cloud, BookOpen, ClipboardList, ClipboardEdit, type LucideIcon } from "lucide-react";
+import { Wand2, Sparkles, Cloud, BookOpen, ClipboardList, ClipboardEdit, Layers, type LucideIcon } from "lucide-react";
 
 export interface AdminTool {
   id: string;
@@ -56,6 +56,17 @@ export const ADMIN_TOOLS: AdminTool[] = [
       "Generate artwork from prompts or edit existing images. Gemini 2.5 Flash Image (Nano Banana).",
     icon: Sparkles,
     image: "/admin/tools/image-studio.svg",
+    accent: "amber",
+    poweredBy: "Google Gemini",
+  },
+  {
+    id: "batch-enhancer",
+    label: "Batch Image Enhancer",
+    href: "/admin/batch-enhancer",
+    description:
+      "Run a Gemini Nano Banana enhancement preset across many photos at once. Upload, point at a Dropbox folder, or queue from desktop.",
+    icon: Layers,
+    image: "/admin/tools/batch-enhancer.svg",
     accent: "amber",
     poweredBy: "Google Gemini",
   },

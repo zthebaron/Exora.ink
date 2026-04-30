@@ -81,11 +81,17 @@ function getClient(): GoogleGenAI {
 
 function buildParts(
   prompt: string,
-  refs?: ImageReference[]
+  refs?: ImageReference[],
+  applyChromaKey: boolean = true
 ): Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> {
+  // The chroma-key suffix is for DTF artwork generation. Photo enhancement
+  // jobs (batch enhancer) skip it so we don't paint magenta over real photos.
+  const text = applyChromaKey
+    ? `${prompt.trim()}${CHROMA_KEY_SUFFIX}`
+    : prompt.trim();
   const parts: Array<
     { text: string } | { inlineData: { mimeType: string; data: string } }
-  > = [{ text: `${prompt.trim()}${CHROMA_KEY_SUFFIX}` }];
+  > = [{ text }];
   if (refs && refs.length > 0) {
     for (const ref of refs) {
       parts.push({
@@ -146,10 +152,11 @@ function extractImage(
 export async function generatePreview(
   prompt: string,
   refs?: ImageReference[],
-  aspectRatio: AspectRatio = "1:1"
+  aspectRatio: AspectRatio = "1:1",
+  applyChromaKey: boolean = true
 ): Promise<GenerationResult> {
   const ai = getClient();
-  const parts = buildParts(prompt, refs);
+  const parts = buildParts(prompt, refs, applyChromaKey);
 
   const response = (await ai.models.generateContent({
     model: PREVIEW_MODEL,
@@ -183,10 +190,11 @@ export async function generatePreview(
 export async function generateProduction(
   prompt: string,
   refs?: ImageReference[],
-  aspectRatio: AspectRatio = "1:1"
+  aspectRatio: AspectRatio = "1:1",
+  applyChromaKey: boolean = true
 ): Promise<GenerationResult> {
   const ai = getClient();
-  const parts = buildParts(prompt, refs);
+  const parts = buildParts(prompt, refs, applyChromaKey);
 
   const response = (await ai.models.generateContent({
     model: PRODUCTION_MODEL,

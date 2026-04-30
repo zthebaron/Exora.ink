@@ -34,6 +34,9 @@ export async function POST(request: NextRequest) {
   const prompt = ((form.get("prompt") as string) || "").trim();
   const aspectInput = form.get("aspectRatio") as string | null;
   const aspectRatio: AspectRatio = isAspectRatio(aspectInput) ? aspectInput : "1:1";
+  // Photo-enhancement jobs (batch enhancer) opt out of the magenta
+  // chroma-key suffix that the DTF artwork pipeline always enforces.
+  const applyChromaKey = (form.get("chromaKey") as string) !== "none";
   const printTargetId = (form.get("printTarget") as string) || "adult-front";
   const printTarget =
     PRINT_TARGETS.find((p) => p.id === printTargetId) ?? PRINT_TARGETS[1];
@@ -74,8 +77,18 @@ export async function POST(request: NextRequest) {
   try {
     generation =
       tier === "production"
-        ? await generateProduction(prompt, refs.length ? refs : undefined, aspectRatio)
-        : await generatePreview(prompt, refs.length ? refs : undefined, aspectRatio);
+        ? await generateProduction(
+            prompt,
+            refs.length ? refs : undefined,
+            aspectRatio,
+            applyChromaKey
+          )
+        : await generatePreview(
+            prompt,
+            refs.length ? refs : undefined,
+            aspectRatio,
+            applyChromaKey
+          );
   } catch (err) {
     const formatted = formatUpstreamError(err);
     const headers: Record<string, string> = {};
