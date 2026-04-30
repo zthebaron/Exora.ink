@@ -187,6 +187,80 @@ export const customOrders = pgTable("custom_orders", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Connected social media accounts. One row per platform-account pairing.
+// Tokens stored encrypted at the platform layer; we just hold whatever
+// the OAuth flow handed back. expiresAt drives refresh-or-fail logic.
+export const socialAccounts = pgTable("social_accounts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  /** "facebook" | "instagram" | "linkedin" | "pinterest" | "threads" | "x" | "tiktok" */
+  platform: varchar("platform", { length: 24 }).notNull(),
+  /** Platform-side account ID (FB Page id, IG Business id, LinkedIn URN, etc.) */
+  externalId: text("external_id").notNull(),
+  /** Display name shown in the UI. */
+  displayName: text("display_name").notNull(),
+  /** Optional avatar URL the platform returned. */
+  avatarUrl: text("avatar_url"),
+  /** OAuth access token (long-lived where possible). */
+  accessToken: text("access_token").notNull(),
+  /** Refresh token if the platform supports it. */
+  refreshToken: text("refresh_token"),
+  /** ISO timestamp the access token expires (null = doesn't expire). */
+  expiresAt: timestamp("expires_at"),
+  /** Granted OAuth scopes (space-delimited). */
+  scope: text("scope"),
+  /** Platform-specific metadata (e.g. FB Page id linked to IG Business id). */
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Composed posts. A single post can target multiple platforms — the
+// social_post_results child table records what happened on each.
+export const socialPosts = pgTable("social_posts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  /** Operator-facing label for the drafts list. */
+  label: text("label"),
+  /** Caption / body text. Per-platform character limits enforced at publish. */
+  body: text("body").notNull().default(""),
+  /** Public image URLs (one or many). Could be hosted by us or a CDN. */
+  imageUrls: jsonb("image_urls").$type<string[]>().notNull().default([]),
+  /** Platform IDs (FK to social_accounts) the post is targeted at. */
+  targetAccountIds: jsonb("target_account_ids").$type<string[]>().notNull().default([]),
+  /** "draft" | "scheduled" | "publishing" | "published" | "failed" | "cancelled" */
+  status: varchar("status", { length: 16 }).notNull().default("draft"),
+  /** When to publish (null = post-now / draft). */
+  scheduledFor: timestamp("scheduled_for"),
+  /** When the publish run finished (any platform success or final failure). */
+  postedAt: timestamp("posted_at"),
+  /** Free-form internal notes. */
+  notes: text("notes"),
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Per-account result of a publish attempt. One row per (post, account).
+export const socialPostResults = pgTable("social_post_results", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  postId: uuid("post_id")
+    .notNull()
+    .references(() => socialPosts.id, { onDelete: "cascade" }),
+  accountId: uuid("account_id")
+    .notNull()
+    .references(() => socialAccounts.id, { onDelete: "cascade" }),
+  /** "queued" | "publishing" | "ok" | "error" */
+  status: varchar("status", { length: 16 }).notNull().default("queued"),
+  /** Platform-side post ID (e.g. FB graph ID, IG media ID, LinkedIn URN). */
+  platformPostId: text("platform_post_id"),
+  /** Permalink to the published post. */
+  permalink: text("permalink"),
+  /** Error message if status === error. */
+  error: text("error"),
+  /** Engagement metrics pulled back later (likes, comments, reach). */
+  metrics: jsonb("metrics"),
+  attemptedAt: timestamp("attempted_at").defaultNow().notNull(),
+});
+
 // User-saved enhancement prompts for the Batch Image Enhancer. These
 // appear alongside the 5 built-in presets in the preset list. Single-
 // tenant: no user scope, but createdBy is captured for attribution.

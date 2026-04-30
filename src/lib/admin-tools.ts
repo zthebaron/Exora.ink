@@ -1,4 +1,4 @@
-import { Wand2, Sparkles, Cloud, BookOpen, ClipboardList, ClipboardEdit, Layers, type LucideIcon } from "lucide-react";
+import { Wand2, Sparkles, Cloud, BookOpen, ClipboardList, ClipboardEdit, Layers, Send, type LucideIcon } from "lucide-react";
 
 export interface AdminTool {
   id: string;
@@ -69,6 +69,17 @@ export const ADMIN_TOOLS: AdminTool[] = [
     image: "/admin/tools/batch-enhancer.svg",
     accent: "amber",
     poweredBy: "Google Gemini",
+  },
+  {
+    id: "social-poster",
+    label: "Social Poster",
+    href: "/admin/social-poster",
+    description:
+      "Compose once, publish to Facebook, Instagram, LinkedIn and Pinterest. Schedule posts or fire now.",
+    icon: Send,
+    image: "/admin/tools/social-poster.svg",
+    accent: "rose",
+    poweredBy: "Meta · LinkedIn · Pinterest",
   },
   {
     id: "dropbox-auth",
