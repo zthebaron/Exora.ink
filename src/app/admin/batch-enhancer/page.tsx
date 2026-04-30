@@ -31,6 +31,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ToolsNav } from "@/components/admin/tools-nav";
 import { ToolFeedback } from "@/components/admin/tool-feedback";
+import { BeforeAfterSlider } from "@/components/admin/before-after-slider";
 import { formatBytes } from "@/lib/image-metadata";
 import { formatCurrency } from "@/lib/formatters";
 import {
@@ -120,6 +121,7 @@ export default function BatchEnhancerPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [running, setRunning] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const [comparing, setComparing] = useState<Job | null>(null);
 
   // Dropbox tab state
   const [dropboxPath, setDropboxPath] = useState("/Apps/Exora-RIP/inbox");
@@ -218,6 +220,9 @@ export default function BatchEnhancerPage() {
     async (job: Job): Promise<Partial<Job>> => {
       // 1. Resolve the input as a Blob.
       let blob: Blob | null = null;
+      // For Dropbox jobs, we also stash an inputUrl so the before/after
+      // slider can show the original — the upload path already has one.
+      let extraPatch: Partial<Job> = {};
       if (job.source === "upload" && job.file) {
         blob = job.file;
       } else if (job.source === "dropbox" && job.dropboxPath) {
@@ -231,6 +236,7 @@ export default function BatchEnhancerPage() {
           return { status: "error", error: err.error || "Dropbox fetch failed" };
         }
         blob = await res.blob();
+        extraPatch = { inputUrl: URL.createObjectURL(blob) };
       }
       if (!blob) {
         return { status: "error", error: "No source data" };
@@ -255,6 +261,7 @@ export default function BatchEnhancerPage() {
       const costHeader = res.headers.get("X-Cost-Usd");
       const costUsd = costHeader ? parseFloat(costHeader) : BATCH_TIER_COSTS[tier];
       return {
+        ...extraPatch,
         status: "done",
         outputBlob: out,
         outputUrl: URL.createObjectURL(out),
@@ -266,14 +273,13 @@ export default function BatchEnhancerPage() {
 
   const runBatch = useCallback(async () => {
     if (running) return;
-    const queue = jobs.filter((j) => j.status === "pending");
-    if (queue.length === 0) return;
+    // Capture the queue at run-start — workers iterate this snapshot
+    // directly, no async state-peeking needed.
+    const queueSnapshot = jobs.filter((j) => j.status === "pending");
+    if (queueSnapshot.length === 0) return;
     setRunning(true);
     setGlobalError(null);
 
-    // Set everything in queue to "processing" up to MAX_CONCURRENT, then
-    // worker functions pull from the shared queue.
-    const queueIds = queue.map((j) => j.id);
     let cursor = 0;
 
     const updateJob = (id: string, patch: Partial<Job>) => {
@@ -281,23 +287,16 @@ export default function BatchEnhancerPage() {
     };
 
     const worker = async () => {
-      while (cursor < queueIds.length) {
+      while (cursor < queueSnapshot.length) {
         const idx = cursor++;
-        const id = queueIds[idx];
-        // Snapshot the current job state — read fresh from the React state
-        // ref by resolving via the setter pattern.
-        let snapshot: Job | undefined;
-        setJobs((prev) => {
-          snapshot = prev.find((j) => j.id === id);
-          return prev;
-        });
-        if (!snapshot) continue;
-        updateJob(id, { status: "processing" });
+        const job = queueSnapshot[idx];
+        if (!job) continue;
+        updateJob(job.id, { status: "processing" });
         try {
-          const patch = await processOne(snapshot);
-          updateJob(id, patch);
+          const patch = await processOne(job);
+          updateJob(job.id, patch);
         } catch (e) {
-          updateJob(id, {
+          updateJob(job.id, {
             status: "error",
             error: e instanceof Error ? e.message : "Unknown error",
           });
@@ -306,7 +305,7 @@ export default function BatchEnhancerPage() {
     };
 
     await Promise.all(
-      Array.from({ length: Math.min(MAX_CONCURRENT, queueIds.length) }, () => worker())
+      Array.from({ length: Math.min(MAX_CONCURRENT, queueSnapshot.length) }, () => worker())
     );
 
     setRunning(false);
@@ -723,6 +722,7 @@ export default function BatchEnhancerPage() {
                     job={job}
                     onRemove={() => removeJob(job.id)}
                     onDownload={() => downloadJob(job)}
+                    onCompare={() => setComparing(job)}
                   />
                 ))}
               </div>
@@ -732,6 +732,17 @@ export default function BatchEnhancerPage() {
 
         <ToolFeedback toolId="batch-enhancer" toolLabel="Batch Image Enhancer" />
       </div>
+
+      {comparing && comparing.inputUrl && comparing.outputUrl && (
+        <BeforeAfterSlider
+          beforeUrl={comparing.inputUrl}
+          afterUrl={comparing.outputUrl}
+          title={`${preset.label} · ${tier} tier`}
+          subtitle={comparing.label}
+          onDownload={() => downloadJob(comparing)}
+          onClose={() => setComparing(null)}
+        />
+      )}
     </div>
   );
 }
@@ -767,16 +778,28 @@ function JobRow({
   job,
   onRemove,
   onDownload,
+  onCompare,
 }: {
   job: Job;
   onRemove: () => void;
   onDownload: () => void;
+  onCompare: () => void;
 }) {
+  const canCompare = !!(job.inputUrl && job.outputUrl);
   return (
     <Card>
       <CardContent className="flex items-center gap-3 py-3">
         {/* Source thumbnail */}
-        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
+        <button
+          type="button"
+          onClick={canCompare ? onCompare : undefined}
+          disabled={!canCompare}
+          title={canCompare ? "Click to compare before / after" : undefined}
+          className={cn(
+            "h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border bg-muted",
+            canCompare && "cursor-pointer transition-shadow hover:ring-2 hover:ring-primary/40"
+          )}
+        >
           {job.inputUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={job.inputUrl} alt="" className="h-full w-full object-cover" />
@@ -789,13 +812,22 @@ function JobRow({
               )}
             </div>
           )}
-        </div>
+        </button>
 
         {/* Arrow */}
         <div className="text-muted-foreground/50">→</div>
 
         {/* Output thumbnail */}
-        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
+        <button
+          type="button"
+          onClick={canCompare ? onCompare : undefined}
+          disabled={!canCompare}
+          title={canCompare ? "Click to compare before / after" : undefined}
+          className={cn(
+            "h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border bg-muted",
+            canCompare && "cursor-pointer transition-shadow hover:ring-2 hover:ring-primary/40"
+          )}
+        >
           {job.outputUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={job.outputUrl} alt="" className="h-full w-full object-cover" />
@@ -810,7 +842,7 @@ function JobRow({
               )}
             </div>
           )}
-        </div>
+        </button>
 
         {/* Body */}
         <div className="min-w-0 flex-1">
