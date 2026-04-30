@@ -38,6 +38,13 @@ import { ToolsNav } from "@/components/admin/tools-nav";
 import { ToolFeedback } from "@/components/admin/tool-feedback";
 import { BeforeAfterSlider } from "@/components/admin/before-after-slider";
 import { applyWatermark } from "@/lib/watermark/watermark";
+import {
+  getImageDimensions,
+  pickClosestAspectRatio,
+  resizeToExact,
+  SUPPORTED_RATIOS,
+  type SupportedRatioId,
+} from "@/lib/batch-enhance/output-sizing";
 import { formatBytes } from "@/lib/image-metadata";
 import { formatCurrency } from "@/lib/formatters";
 import {
@@ -158,6 +165,10 @@ const MAX_CONCURRENT = 3;
 export default function BatchEnhancerPage() {
   const [sourceMode, setSourceMode] = useState<"upload" | "dropbox" | "drive">("upload");
   const [tier, setTier] = useState<"preview" | "production">("preview");
+  /** When true, output exactly matches the input image dimensions per-job.
+   *  When false, all outputs use the explicit `outputRatio` selected below. */
+  const [matchSourceSize, setMatchSourceSize] = useState(true);
+  const [outputRatio, setOutputRatio] = useState<SupportedRatioId>("1:1");
   const [active, setActive] = useState<ActivePreset>({
     kind: "builtin",
     id: BATCH_PRESETS[0].id,
@@ -377,12 +388,30 @@ export default function BatchEnhancerPage() {
         return { status: "error", error: "No source data" };
       }
 
-      // 2. Submit to /api/image-studio in edit mode with chroma-key disabled.
+      // 2. Decide aspect ratio + target output dimensions.
+      // - If "match source size" is on, measure the input and pick the
+      //   closest Gemini-supported ratio + remember the input's exact
+      //   pixel size so we can resize the result to match at the end.
+      // - Otherwise use the operator-selected ratio and let Gemini decide
+      //   the resolution.
+      let aspectRatio: SupportedRatioId = outputRatio;
+      let targetSize: { width: number; height: number } | null = null;
+      if (matchSourceSize) {
+        try {
+          const dims = await getImageDimensions(blob);
+          aspectRatio = pickClosestAspectRatio(dims.width, dims.height);
+          targetSize = dims;
+        } catch {
+          // If we can't measure, fall back to the explicit ratio.
+        }
+      }
+
+      // 3. Submit to /api/image-studio in edit mode with chroma-key disabled.
       const form = new FormData();
       form.append("mode", "edit");
       form.append("tier", tier);
       form.append("prompt", resolved.prompt);
-      form.append("aspectRatio", "1:1");
+      form.append("aspectRatio", aspectRatio);
       form.append("chromaKey", "none");
       form.append("image", blob, "input");
 
@@ -392,12 +421,29 @@ export default function BatchEnhancerPage() {
         return { status: "error", error: err.error || `Generation failed (${res.status})` };
       }
 
-      const cleanBlob = await res.blob();
+      const rawBlob = await res.blob();
       const costHeader = res.headers.get("X-Cost-Usd");
       const costUsd = costHeader ? parseFloat(costHeader) : BATCH_TIER_COSTS[tier];
 
-      // Apply watermark only if the unlock feature is configured.
-      // Otherwise just pass the clean blob through as the output.
+      // 4. Resize to match source dimensions exactly (if enabled). The
+      // model picks its own pixel resolution within the requested ratio,
+      // so we always finish with a canvas pass to land on the precise
+      // input WxH the operator started with.
+      let cleanBlob = rawBlob;
+      if (targetSize && matchSourceSize) {
+        try {
+          cleanBlob = await resizeToExact(
+            rawBlob,
+            targetSize.width,
+            targetSize.height,
+            "cover"
+          );
+        } catch (err) {
+          console.error("Resize-to-source failed, using model output as-is:", err);
+        }
+      }
+
+      // 5. Apply watermark only if the unlock feature is configured.
       let watermarkedBlob = cleanBlob;
       if (lockConfigured) {
         try {
@@ -419,7 +465,7 @@ export default function BatchEnhancerPage() {
         costUsd,
       };
     },
-    [resolved.prompt, tier, lockConfigured]
+    [resolved.prompt, tier, lockConfigured, matchSourceSize, outputRatio]
   );
 
   const runBatch = useCallback(async () => {
@@ -979,6 +1025,63 @@ export default function BatchEnhancerPage() {
                     4K · {formatCurrency(BATCH_TIER_COSTS.production)}/image · ~30–60s
                   </p>
                 </button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">4. Output size</CardTitle>
+                <CardDescription>
+                  By default, outputs are resized to match each input&apos;s exact pixel
+                  dimensions.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-border bg-muted/20 p-3">
+                  <input
+                    type="checkbox"
+                    checked={matchSourceSize}
+                    onChange={(e) => setMatchSourceSize(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 cursor-pointer accent-primary"
+                  />
+                  <span className="flex-1">
+                    <span className="block text-sm font-semibold text-foreground">
+                      Match source size
+                    </span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                      Each output is resized to its input&apos;s exact dimensions. Aspect
+                      ratio is auto-detected per image.
+                    </span>
+                  </span>
+                </label>
+                {!matchSourceSize && (
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-medium text-muted-foreground">
+                      Force aspect ratio
+                    </p>
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {SUPPORTED_RATIOS.map((r) => (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => setOutputRatio(r.id)}
+                          className={cn(
+                            "rounded-md border-2 px-2 py-1.5 text-xs font-medium tabular-nums transition-colors",
+                            outputRatio === r.id
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border bg-card text-muted-foreground hover:bg-muted"
+                          )}
+                        >
+                          {r.id}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Outputs will be at the model&apos;s native resolution for the
+                      selected ratio (~1K Preview / ~4K Production).
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
