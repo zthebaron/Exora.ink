@@ -18,6 +18,8 @@ import {
   Home,
   Image as ImageIcon,
   Loader2,
+  Lock,
+  LockOpen,
   Package,
   Pencil,
   Play,
@@ -35,6 +37,7 @@ import { cn } from "@/lib/utils";
 import { ToolsNav } from "@/components/admin/tools-nav";
 import { ToolFeedback } from "@/components/admin/tool-feedback";
 import { BeforeAfterSlider } from "@/components/admin/before-after-slider";
+import { applyWatermark } from "@/lib/watermark/watermark";
 import { formatBytes } from "@/lib/image-metadata";
 import { formatCurrency } from "@/lib/formatters";
 import {
@@ -128,8 +131,14 @@ interface Job {
   dropboxPath?: string;
   /** Object URLs once we have them. */
   inputUrl?: string;
+  /** Watermarked output for display (always present after success). */
   outputUrl?: string;
+  /** Watermarked Blob — download served from this when locked. */
   outputBlob?: Blob;
+  /** Object URL for the unwatermarked clean image (only used when unlocked). */
+  cleanUrl?: string;
+  /** Unwatermarked Blob — download served from this when unlocked. */
+  cleanBlob?: Blob;
   /** Error message if status === error. */
   error?: string;
   /** Cost charged for this job. */
@@ -162,6 +171,11 @@ export default function BatchEnhancerPage() {
   const [running, setRunning] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [comparing, setComparing] = useState<Job | null>(null);
+  // Unlock state — when configured, outputs ship watermarked + non-downloadable
+  // until the operator enters the password. unlocked persists for the page session only.
+  const [lockConfigured, setLockConfigured] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
+  const [unlockDialog, setUnlockDialog] = useState(false);
 
   // Dropbox tab state
   const [dropboxPath, setDropboxPath] = useState("/Apps/Exora-RIP/inbox");
@@ -233,6 +247,14 @@ export default function BatchEnhancerPage() {
     fetchSavedPrompts();
   }, [fetchSavedPrompts]);
 
+  /** Probe the unlock-feature configuration on mount. */
+  useEffect(() => {
+    fetch("/api/admin/unlock", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => setLockConfigured(!!d.configured))
+      .catch(() => setLockConfigured(false));
+  }, []);
+
   /** Persist custom draft so it survives a refresh. */
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -279,6 +301,7 @@ export default function BatchEnhancerPage() {
       const j = prev.find((x) => x.id === id);
       if (j?.inputUrl) URL.revokeObjectURL(j.inputUrl);
       if (j?.outputUrl) URL.revokeObjectURL(j.outputUrl);
+      if (j?.cleanUrl) URL.revokeObjectURL(j.cleanUrl);
       return prev.filter((x) => x.id !== id);
     });
   };
@@ -287,6 +310,7 @@ export default function BatchEnhancerPage() {
     jobs.forEach((j) => {
       if (j.inputUrl) URL.revokeObjectURL(j.inputUrl);
       if (j.outputUrl) URL.revokeObjectURL(j.outputUrl);
+      if (j.cleanUrl) URL.revokeObjectURL(j.cleanUrl);
     });
     setJobs([]);
   };
@@ -368,18 +392,34 @@ export default function BatchEnhancerPage() {
         return { status: "error", error: err.error || `Generation failed (${res.status})` };
       }
 
-      const out = await res.blob();
+      const cleanBlob = await res.blob();
       const costHeader = res.headers.get("X-Cost-Usd");
       const costUsd = costHeader ? parseFloat(costHeader) : BATCH_TIER_COSTS[tier];
+
+      // Apply watermark only if the unlock feature is configured.
+      // Otherwise just pass the clean blob through as the output.
+      let watermarkedBlob = cleanBlob;
+      if (lockConfigured) {
+        try {
+          watermarkedBlob = await applyWatermark(cleanBlob);
+        } catch (err) {
+          // Watermark failure should NOT block the output — fall back to clean
+          // (operators won't realize watermark is missing, but better than no result).
+          console.error("Watermark failed:", err);
+        }
+      }
+
       return {
         ...extraPatch,
         status: "done",
-        outputBlob: out,
-        outputUrl: URL.createObjectURL(out),
+        outputBlob: watermarkedBlob,
+        outputUrl: URL.createObjectURL(watermarkedBlob),
+        cleanBlob,
+        cleanUrl: URL.createObjectURL(cleanBlob),
         costUsd,
       };
     },
-    [resolved.prompt, tier]
+    [resolved.prompt, tier, lockConfigured]
   );
 
   const runBatch = useCallback(async () => {
@@ -443,10 +483,21 @@ export default function BatchEnhancerPage() {
   // -------------------------------------------------------------------------
 
   const downloadJob = (job: Job) => {
-    if (!job.outputBlob) return;
+    // Locked + watermarking active → block download. Pop the unlock dialog
+    // so the operator can decide whether to authenticate or take the
+    // watermarked draft anyway (we don't allow watermarked downloads — only
+    // unlocked clean downloads).
+    if (lockConfigured && !unlocked) {
+      setUnlockDialog(true);
+      return;
+    }
+    // Prefer the clean blob; fall back to whatever output we have
+    // (covers the "lock not configured at all" path where outputBlob == cleanBlob).
+    const blob = job.cleanBlob ?? job.outputBlob;
+    if (!blob) return;
     const baseName = job.label.replace(/^.*\//, "").replace(/\.[^.]+$/, "");
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(job.outputBlob);
+    a.href = URL.createObjectURL(blob);
     a.download = `${baseName}-${resolved.slug}.png`;
     document.body.appendChild(a);
     a.click();
@@ -977,11 +1028,48 @@ export default function BatchEnhancerPage() {
                       ? `Processing ${stats.processing}/${stats.pending + stats.processing}…`
                       : `Run ${stats.pending}`}
                   </button>
+                  {lockConfigured && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        unlocked ? setUnlocked(false) : setUnlockDialog(true)
+                      }
+                      title={
+                        unlocked
+                          ? "Re-lock outputs (re-applies watermark for new results)"
+                          : "Outputs are watermarked. Click to enter the password and unlock."
+                      }
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+                        unlocked
+                          ? "bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/25 dark:text-emerald-400"
+                          : "bg-amber-500/15 text-amber-700 hover:bg-amber-500/25 dark:text-amber-400"
+                      )}
+                    >
+                      {unlocked ? (
+                        <>
+                          <LockOpen className="h-3.5 w-3.5" />
+                          Unlocked
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="h-3.5 w-3.5" />
+                          Watermarked
+                        </>
+                      )}
+                    </button>
+                  )}
                   {stats.done > 0 && (
                     <button
                       type="button"
                       onClick={downloadAll}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium hover:bg-muted"
+                      disabled={lockConfigured && !unlocked}
+                      title={
+                        lockConfigured && !unlocked
+                          ? "Unlock to download clean files"
+                          : undefined
+                      }
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Download className="h-3.5 w-3.5" />
                       Download all
@@ -1022,9 +1110,11 @@ export default function BatchEnhancerPage() {
                   <JobRow
                     key={job.id}
                     job={job}
+                    locked={lockConfigured && !unlocked}
                     onRemove={() => removeJob(job.id)}
                     onDownload={() => downloadJob(job)}
                     onCompare={() => setComparing(job)}
+                    onPadlockClick={() => setUnlockDialog(true)}
                   />
                 ))}
               </div>
@@ -1038,11 +1128,25 @@ export default function BatchEnhancerPage() {
       {comparing && comparing.inputUrl && comparing.outputUrl && (
         <BeforeAfterSlider
           beforeUrl={comparing.inputUrl}
-          afterUrl={comparing.outputUrl}
-          title={`${resolved.label} · ${tier} tier`}
+          afterUrl={
+            unlocked && comparing.cleanUrl ? comparing.cleanUrl : comparing.outputUrl
+          }
+          title={`${resolved.label} · ${tier} tier${
+            lockConfigured && !unlocked ? " · WATERMARKED" : ""
+          }`}
           subtitle={comparing.label}
           onDownload={() => downloadJob(comparing)}
           onClose={() => setComparing(null)}
+        />
+      )}
+
+      {unlockDialog && (
+        <UnlockDialog
+          onClose={() => setUnlockDialog(false)}
+          onUnlocked={() => {
+            setUnlocked(true);
+            setUnlockDialog(false);
+          }}
         />
       )}
 
@@ -1346,6 +1450,77 @@ function EditPromptDialog({
   );
 }
 
+function UnlockDialog({
+  onClose,
+  onUnlocked,
+}: {
+  onClose: () => void;
+  onUnlocked: () => void;
+}) {
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!password) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/unlock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Wrong password");
+      onUnlocked();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unlock failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal title="Unlock outputs" onClose={onClose}>
+      <form onSubmit={submit} className="space-y-3">
+        <p className="text-xs text-muted-foreground">
+          Outputs are watermarked &amp; non-downloadable until you enter the unlock
+          password. The unlock applies for the rest of this page session — refresh
+          the page to re-lock.
+        </p>
+        <Field label="Password">
+          <Input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoFocus
+          />
+        </Field>
+        {error && <p className="text-xs text-destructive">{error}</p>}
+        <div className="flex justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={submitting || !password}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LockOpen className="h-3.5 w-3.5" />}
+            Unlock
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 function Modal({
   title,
   onClose,
@@ -1418,14 +1593,18 @@ function Stat({
 
 function JobRow({
   job,
+  locked,
   onRemove,
   onDownload,
   onCompare,
+  onPadlockClick,
 }: {
   job: Job;
+  locked: boolean;
   onRemove: () => void;
   onDownload: () => void;
   onCompare: () => void;
+  onPadlockClick: () => void;
 }) {
   const canCompare = !!(job.inputUrl && job.outputUrl);
   return (
@@ -1460,31 +1639,48 @@ function JobRow({
         <div className="text-muted-foreground/50">→</div>
 
         {/* Output thumbnail */}
-        <button
-          type="button"
-          onClick={canCompare ? onCompare : undefined}
-          disabled={!canCompare}
-          title={canCompare ? "Click to compare before / after" : undefined}
-          className={cn(
-            "h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border bg-muted",
-            canCompare && "cursor-pointer transition-shadow hover:ring-2 hover:ring-primary/40"
+        <div className="relative h-16 w-16 shrink-0">
+          <button
+            type="button"
+            onClick={canCompare ? onCompare : undefined}
+            disabled={!canCompare}
+            title={canCompare ? "Click to compare before / after" : undefined}
+            className={cn(
+              "h-full w-full overflow-hidden rounded-lg border border-border bg-muted",
+              canCompare && "cursor-pointer transition-shadow hover:ring-2 hover:ring-primary/40"
+            )}
+          >
+            {job.outputUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={job.outputUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center">
+                {job.status === "processing" ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                ) : job.status === "error" ? (
+                  <X className="h-5 w-5 text-destructive" />
+                ) : (
+                  <span className="text-xs text-muted-foreground/40">—</span>
+                )}
+              </div>
+            )}
+          </button>
+          {/* Padlock overlay — visible only when an output exists and outputs are locked */}
+          {locked && job.outputUrl && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onPadlockClick();
+              }}
+              title="Locked — click to unlock with password (removes watermark)"
+              aria-label="Unlock"
+              className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500/95 text-amber-950 shadow ring-1 ring-black/30 hover:bg-amber-400"
+            >
+              <Lock className="h-3 w-3" />
+            </button>
           )}
-        >
-          {job.outputUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={job.outputUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center">
-              {job.status === "processing" ? (
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              ) : job.status === "error" ? (
-                <X className="h-5 w-5 text-destructive" />
-              ) : (
-                <span className="text-xs text-muted-foreground/40">—</span>
-              )}
-            </div>
-          )}
-        </button>
+        </div>
 
         {/* Body */}
         <div className="min-w-0 flex-1">
