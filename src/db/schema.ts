@@ -187,6 +187,24 @@ export const customOrders = pgTable("custom_orders", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// User-saved enhancement prompts for the Batch Image Enhancer. These
+// appear alongside the 5 built-in presets in the preset list. Single-
+// tenant: no user scope, but createdBy is captured for attribution.
+export const batchEnhancePrompts = pgTable("batch_enhance_prompts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  label: text("label").notNull(),
+  prompt: text("prompt").notNull(),
+  /** Lucide icon name, defaults to "Sparkles". */
+  icon: varchar("icon", { length: 24 }).default("Sparkles").notNull(),
+  /** Tailwind accent stem: teal | amber | sky | rose | emerald | indigo. */
+  accent: varchar("accent", { length: 16 }).default("amber").notNull(),
+  /** How many times this preset has been applied. */
+  useCount: integer("use_count").default(0).notNull(),
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Per-tool operator feedback / notes — running comment thread on each
 // admin tool page. Single-tenant for now (no userId), author is a free-form
 // string so operators can identify themselves without auth.

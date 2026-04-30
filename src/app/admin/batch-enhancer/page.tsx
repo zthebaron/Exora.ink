@@ -19,12 +19,15 @@ import {
   Image as ImageIcon,
   Loader2,
   Package,
+  Pencil,
   Play,
   Plus,
   RefreshCw,
+  Save,
   Sparkles,
   Trash2,
   Upload,
+  Wand2,
   X,
   Zap,
 } from "lucide-react";
@@ -41,10 +44,33 @@ import {
   type BatchPresetId,
 } from "@/lib/batch-enhance/presets";
 
-const ICON_MAP = { Home, Package, Camera, Image: ImageIcon, Building };
+const ICON_MAP = { Home, Package, Camera, Image: ImageIcon, Building, Sparkles, Wand2 } as const;
+type IconKey = keyof typeof ICON_MAP;
+
+const ACCENT_KEYS = ["teal", "amber", "sky", "rose", "emerald", "indigo"] as const;
+type AccentKey = (typeof ACCENT_KEYS)[number];
+
+interface SavedPrompt {
+  id: string;
+  label: string;
+  prompt: string;
+  icon: string;
+  accent: string;
+  useCount: number;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+type ActivePreset =
+  | { kind: "builtin"; id: BatchPresetId }
+  | { kind: "saved"; id: string }
+  | { kind: "custom" };
+
+const CUSTOM_DRAFT_KEY = "exora.batchEnhance.customDraft";
 
 const ACCENTS: Record<
-  BatchPreset["accent"],
+  AccentKey,
   { bg: string; text: string; border: string; ring: string }
 > = {
   teal: {
@@ -76,6 +102,12 @@ const ACCENTS: Record<
     text: "text-emerald-700 dark:text-emerald-400",
     border: "border-emerald-500/40",
     ring: "ring-emerald-500/30",
+  },
+  indigo: {
+    bg: "bg-indigo-500/15",
+    text: "text-indigo-700 dark:text-indigo-400",
+    border: "border-indigo-500/40",
+    ring: "ring-indigo-500/30",
   },
 };
 
@@ -117,7 +149,15 @@ const MAX_CONCURRENT = 3;
 export default function BatchEnhancerPage() {
   const [sourceMode, setSourceMode] = useState<"upload" | "dropbox" | "drive">("upload");
   const [tier, setTier] = useState<"preview" | "production">("preview");
-  const [presetId, setPresetId] = useState<BatchPresetId>(BATCH_PRESETS[0].id);
+  const [active, setActive] = useState<ActivePreset>({
+    kind: "builtin",
+    id: BATCH_PRESETS[0].id,
+  });
+  const [customPromptText, setCustomPromptText] = useState("");
+  const [savedPrompts, setSavedPrompts] = useState<SavedPrompt[]>([]);
+  const [savedLoading, setSavedLoading] = useState(false);
+  const [saveDialog, setSaveDialog] = useState<{ label: string } | null>(null);
+  const [editDialog, setEditDialog] = useState<SavedPrompt | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [running, setRunning] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
@@ -132,10 +172,81 @@ export default function BatchEnhancerPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
-  const preset = useMemo(
-    () => BATCH_PRESETS.find((p) => p.id === presetId) ?? BATCH_PRESETS[0],
-    [presetId]
-  );
+  /** Resolved prompt — drives processing + filename + UI labels. */
+  const resolved = useMemo<{
+    prompt: string;
+    label: string;
+    accent: AccentKey;
+    slug: string;
+    /** ID of the saved preset to bump useCount on, if applicable. */
+    savedId?: string;
+  }>(() => {
+    if (active.kind === "builtin") {
+      const p = BATCH_PRESETS.find((x) => x.id === active.id) ?? BATCH_PRESETS[0];
+      return { prompt: p.prompt, label: p.label, accent: p.accent, slug: p.id };
+    }
+    if (active.kind === "saved") {
+      const p = savedPrompts.find((x) => x.id === active.id);
+      if (p) {
+        return {
+          prompt: p.prompt,
+          label: p.label,
+          accent: (ACCENT_KEYS as readonly string[]).includes(p.accent)
+            ? (p.accent as AccentKey)
+            : "amber",
+          slug: `saved-${p.id.slice(0, 8)}`,
+          savedId: p.id,
+        };
+      }
+      // saved preset deleted — fall back to first built-in
+      return {
+        prompt: BATCH_PRESETS[0].prompt,
+        label: BATCH_PRESETS[0].label,
+        accent: BATCH_PRESETS[0].accent,
+        slug: BATCH_PRESETS[0].id,
+      };
+    }
+    // custom (free-form, unsaved)
+    return {
+      prompt: customPromptText,
+      label: "Custom prompt",
+      accent: "indigo",
+      slug: "custom",
+    };
+  }, [active, savedPrompts, customPromptText]);
+
+  /** Fetch saved prompts on mount + after mutations. */
+  const fetchSavedPrompts = useCallback(async () => {
+    setSavedLoading(true);
+    try {
+      const res = await fetch("/api/admin/batch-enhance-prompts", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        setSavedPrompts(data.entries ?? []);
+      }
+    } finally {
+      setSavedLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSavedPrompts();
+  }, [fetchSavedPrompts]);
+
+  /** Persist custom draft so it survives a refresh. */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = localStorage.getItem(CUSTOM_DRAFT_KEY);
+    if (stored) setCustomPromptText(stored);
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (customPromptText) {
+      localStorage.setItem(CUSTOM_DRAFT_KEY, customPromptText);
+    } else {
+      localStorage.removeItem(CUSTOM_DRAFT_KEY);
+    }
+  }, [customPromptText]);
 
   // Cleanup object URLs on unmount.
   useEffect(() => {
@@ -246,7 +357,7 @@ export default function BatchEnhancerPage() {
       const form = new FormData();
       form.append("mode", "edit");
       form.append("tier", tier);
-      form.append("prompt", preset.prompt);
+      form.append("prompt", resolved.prompt);
       form.append("aspectRatio", "1:1");
       form.append("chromaKey", "none");
       form.append("image", blob, "input");
@@ -268,17 +379,33 @@ export default function BatchEnhancerPage() {
         costUsd,
       };
     },
-    [preset.prompt, tier]
+    [resolved.prompt, tier]
   );
 
   const runBatch = useCallback(async () => {
     if (running) return;
+    // Guard: custom prompt mode needs a non-empty prompt.
+    if (active.kind === "custom" && !customPromptText.trim()) {
+      setGlobalError(
+        "Type a custom prompt or pick a preset before running."
+      );
+      return;
+    }
     // Capture the queue at run-start — workers iterate this snapshot
     // directly, no async state-peeking needed.
     const queueSnapshot = jobs.filter((j) => j.status === "pending");
     if (queueSnapshot.length === 0) return;
     setRunning(true);
     setGlobalError(null);
+
+    // Bump useCount on the active saved preset (fire and forget).
+    if (resolved.savedId) {
+      fetch(`/api/admin/batch-enhance-prompts/${resolved.savedId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ useCount: "increment" }),
+      }).catch(() => {});
+    }
 
     let cursor = 0;
 
@@ -309,7 +436,7 @@ export default function BatchEnhancerPage() {
     );
 
     setRunning(false);
-  }, [jobs, processOne, running]);
+  }, [jobs, processOne, running, active, customPromptText, resolved.savedId]);
 
   // -------------------------------------------------------------------------
   // Output / download helpers
@@ -320,7 +447,7 @@ export default function BatchEnhancerPage() {
     const baseName = job.label.replace(/^.*\//, "").replace(/\.[^.]+$/, "");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(job.outputBlob);
-    a.download = `${baseName}-${preset.id}.png`;
+    a.download = `${baseName}-${resolved.slug}.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -546,42 +673,217 @@ export default function BatchEnhancerPage() {
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle className="text-base">2. Choose enhancement</CardTitle>
-                <CardDescription>One preset applies to every image in the queue.</CardDescription>
+              <CardHeader className="flex-row items-start justify-between gap-2 space-y-0">
+                <div>
+                  <CardTitle className="text-base">2. Choose enhancement</CardTitle>
+                  <CardDescription>One preset applies to every image in the queue.</CardDescription>
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchSavedPrompts}
+                  disabled={savedLoading}
+                  className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  title="Refresh saved prompts"
+                  aria-label="Refresh"
+                >
+                  <RefreshCw className={cn("h-4 w-4", savedLoading && "animate-spin")} />
+                </button>
               </CardHeader>
-              <CardContent className="space-y-2">
-                {BATCH_PRESETS.map((p) => {
-                  const accent = ACCENTS[p.accent];
-                  const Icon = ICON_MAP[p.icon];
-                  const active = p.id === presetId;
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setPresetId(p.id)}
-                      className={cn(
-                        "flex w-full items-start gap-3 rounded-lg border-2 p-3 text-left transition-colors",
-                        active
-                          ? cn(accent.border, accent.bg)
-                          : "border-border bg-card hover:bg-muted/40"
-                      )}
-                    >
-                      <div className={cn("rounded-lg p-2", accent.bg, accent.text)}>
-                        <Icon className="h-4 w-4" />
+              <CardContent className="space-y-3">
+                {/* Built-in presets */}
+                <div className="space-y-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Built-in
+                  </p>
+                  {BATCH_PRESETS.map((p) => {
+                    const accent = ACCENTS[p.accent];
+                    const Icon = ICON_MAP[p.icon];
+                    const isActive = active.kind === "builtin" && active.id === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setActive({ kind: "builtin", id: p.id })}
+                        className={cn(
+                          "flex w-full items-start gap-3 rounded-lg border-2 p-3 text-left transition-colors",
+                          isActive
+                            ? cn(accent.border, accent.bg)
+                            : "border-border bg-card hover:bg-muted/40"
+                        )}
+                      >
+                        <div className={cn("rounded-lg p-2", accent.bg, accent.text)}>
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className={cn("text-sm font-semibold", isActive && accent.text)}>
+                            {p.label}
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">{p.blurb}</p>
+                        </div>
+                        {isActive && <Check className={cn("mt-1 h-4 w-4 shrink-0", accent.text)} />}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Saved presets */}
+                {savedPrompts.length > 0 && (
+                  <div className="space-y-2 border-t border-border pt-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Your saved prompts ({savedPrompts.length})
+                    </p>
+                    {savedPrompts.map((sp) => {
+                      const accentKey = (ACCENT_KEYS as readonly string[]).includes(sp.accent)
+                        ? (sp.accent as AccentKey)
+                        : "amber";
+                      const accent = ACCENTS[accentKey];
+                      const iconKey = (Object.keys(ICON_MAP) as IconKey[]).includes(
+                        sp.icon as IconKey
+                      )
+                        ? (sp.icon as IconKey)
+                        : "Sparkles";
+                      const Icon = ICON_MAP[iconKey];
+                      const isActive = active.kind === "saved" && active.id === sp.id;
+                      return (
+                        <div
+                          key={sp.id}
+                          className={cn(
+                            "group relative flex items-start gap-3 rounded-lg border-2 p-3 transition-colors",
+                            isActive
+                              ? cn(accent.border, accent.bg)
+                              : "border-border bg-card hover:bg-muted/40"
+                          )}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setActive({ kind: "saved", id: sp.id })}
+                            className="flex flex-1 items-start gap-3 text-left"
+                          >
+                            <div className={cn("rounded-lg p-2", accent.bg, accent.text)}>
+                              <Icon className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className={cn("text-sm font-semibold", isActive && accent.text)}>
+                                {sp.label}
+                              </p>
+                              <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                                {sp.prompt}
+                              </p>
+                              <p className="mt-1 text-[10px] text-muted-foreground/70">
+                                {sp.useCount > 0 && `${sp.useCount} uses · `}
+                                {new Date(sp.updatedAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                            {isActive && (
+                              <Check className={cn("mt-1 h-4 w-4 shrink-0", accent.text)} />
+                            )}
+                          </button>
+                          {/* Hover actions */}
+                          <div className="absolute right-2 top-2 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditDialog(sp);
+                              }}
+                              className="rounded p-1 text-muted-foreground/60 hover:bg-muted hover:text-foreground"
+                              aria-label="Edit"
+                              title="Edit"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (
+                                  !window.confirm(
+                                    `Delete saved prompt "${sp.label}"?\nThis can't be undone.`
+                                  )
+                                )
+                                  return;
+                                await fetch(`/api/admin/batch-enhance-prompts/${sp.id}`, {
+                                  method: "DELETE",
+                                });
+                                if (active.kind === "saved" && active.id === sp.id) {
+                                  setActive({ kind: "builtin", id: BATCH_PRESETS[0].id });
+                                }
+                                fetchSavedPrompts();
+                              }}
+                              className="rounded p-1 text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive"
+                              aria-label="Delete"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Custom prompt */}
+                <div className="space-y-2 border-t border-border pt-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Custom
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActive({ kind: "custom" })}
+                    className={cn(
+                      "flex w-full items-start gap-3 rounded-lg border-2 p-3 text-left transition-colors",
+                      active.kind === "custom"
+                        ? cn(ACCENTS.indigo.border, ACCENTS.indigo.bg)
+                        : "border-border bg-card hover:bg-muted/40"
+                    )}
+                  >
+                    <div className={cn("rounded-lg p-2", ACCENTS.indigo.bg, ACCENTS.indigo.text)}>
+                      <Wand2 className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={cn(
+                          "text-sm font-semibold",
+                          active.kind === "custom" && ACCENTS.indigo.text
+                        )}
+                      >
+                        Custom prompt
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Type your own enhancement instructions for this batch.
+                      </p>
+                    </div>
+                    {active.kind === "custom" && (
+                      <Check className={cn("mt-1 h-4 w-4 shrink-0", ACCENTS.indigo.text)} />
+                    )}
+                  </button>
+                  {active.kind === "custom" && (
+                    <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-3">
+                      <textarea
+                        value={customPromptText}
+                        onChange={(e) => setCustomPromptText(e.target.value.slice(0, 4000))}
+                        rows={5}
+                        placeholder='e.g. "Re-render this photo with a moody, cinematic film grade. Deepen blacks, add subtle warm highlights, preserve subject and composition exactly."'
+                        className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-muted-foreground tabular-nums">
+                          {customPromptText.length}/4000
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSaveDialog({ label: "" })}
+                          disabled={!customPromptText.trim()}
+                          className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                        >
+                          <Save className="h-3 w-3" />
+                          Save as preset
+                        </button>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className={cn("text-sm font-semibold", active && accent.text)}>
-                          {p.label}
-                        </p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">{p.blurb}</p>
-                      </div>
-                      {active && (
-                        <Check className={cn("mt-1 h-4 w-4 shrink-0", accent.text)} />
-                      )}
-                    </button>
-                  );
-                })}
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
@@ -737,13 +1039,353 @@ export default function BatchEnhancerPage() {
         <BeforeAfterSlider
           beforeUrl={comparing.inputUrl}
           afterUrl={comparing.outputUrl}
-          title={`${preset.label} · ${tier} tier`}
+          title={`${resolved.label} · ${tier} tier`}
           subtitle={comparing.label}
           onDownload={() => downloadJob(comparing)}
           onClose={() => setComparing(null)}
         />
       )}
+
+      {saveDialog && (
+        <SavePromptDialog
+          initialLabel={saveDialog.label}
+          prompt={customPromptText}
+          onClose={() => setSaveDialog(null)}
+          onSaved={(saved) => {
+            setSaveDialog(null);
+            // Switch to the newly-saved preset and clear the custom draft.
+            setActive({ kind: "saved", id: saved.id });
+            setCustomPromptText("");
+            fetchSavedPrompts();
+          }}
+        />
+      )}
+
+      {editDialog && (
+        <EditPromptDialog
+          entry={editDialog}
+          onClose={() => setEditDialog(null)}
+          onSaved={() => {
+            setEditDialog(null);
+            fetchSavedPrompts();
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Save / edit dialogs
+// ---------------------------------------------------------------------------
+
+function SavePromptDialog({
+  initialLabel,
+  prompt,
+  onClose,
+  onSaved,
+}: {
+  initialLabel: string;
+  prompt: string;
+  onClose: () => void;
+  onSaved: (saved: SavedPrompt) => void;
+}) {
+  const [label, setLabel] = useState(initialLabel);
+  const [accent, setAccent] = useState<AccentKey>("indigo");
+  const [iconKey, setIconKey] = useState<IconKey>("Sparkles");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async () => {
+    if (!label.trim()) {
+      setError("Give it a name.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/batch-enhance-prompts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: label.trim(), prompt, accent, icon: iconKey }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Save failed (${res.status})`);
+      onSaved(data.entry);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title="Save as preset" onClose={onClose}>
+      <div className="space-y-3">
+        <Field label="Name">
+          <Input
+            value={label}
+            onChange={(e) => setLabel(e.target.value.slice(0, 80))}
+            placeholder="e.g. Moody cinematic"
+            autoFocus
+          />
+        </Field>
+        <Field label="Icon">
+          <div className="flex flex-wrap gap-1.5">
+            {(Object.keys(ICON_MAP) as IconKey[]).map((k) => {
+              const Icon = ICON_MAP[k];
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setIconKey(k)}
+                  className={cn(
+                    "rounded-md border-2 p-2",
+                    iconKey === k
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:bg-muted"
+                  )}
+                  title={k}
+                >
+                  <Icon className="h-4 w-4" />
+                </button>
+              );
+            })}
+          </div>
+        </Field>
+        <Field label="Accent color">
+          <div className="flex flex-wrap gap-1.5">
+            {ACCENT_KEYS.map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setAccent(k)}
+                className={cn(
+                  "h-7 w-7 rounded-full border-2 capitalize transition-transform",
+                  accent === k ? "scale-110 border-foreground" : "border-transparent"
+                )}
+                style={{
+                  backgroundColor: {
+                    teal: "#0d9488",
+                    amber: "#f59e0b",
+                    sky: "#0ea5e9",
+                    rose: "#f43f5e",
+                    emerald: "#10b981",
+                    indigo: "#6366f1",
+                  }[k],
+                }}
+                title={k}
+                aria-label={k}
+              />
+            ))}
+          </div>
+        </Field>
+        <Field label="Prompt preview">
+          <p className="max-h-32 overflow-y-auto rounded-md border border-border bg-muted/20 p-2 text-xs leading-relaxed text-muted-foreground">
+            {prompt}
+          </p>
+        </Field>
+        {error && <p className="text-xs text-destructive">{error}</p>}
+        <div className="flex justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={saving || !label.trim()}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {saving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
+            Save preset
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function EditPromptDialog({
+  entry,
+  onClose,
+  onSaved,
+}: {
+  entry: SavedPrompt;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [label, setLabel] = useState(entry.label);
+  const [prompt, setPrompt] = useState(entry.prompt);
+  const [accent, setAccent] = useState<AccentKey>(
+    (ACCENT_KEYS as readonly string[]).includes(entry.accent)
+      ? (entry.accent as AccentKey)
+      : "indigo"
+  );
+  const [iconKey, setIconKey] = useState<IconKey>(
+    (Object.keys(ICON_MAP) as IconKey[]).includes(entry.icon as IconKey)
+      ? (entry.icon as IconKey)
+      : "Sparkles"
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async () => {
+    if (!label.trim() || !prompt.trim()) {
+      setError("Name and prompt are required.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/batch-enhance-prompts/${entry.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: label.trim(), prompt: prompt.trim(), accent, icon: iconKey }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Save failed (${res.status})`);
+      onSaved();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title={`Edit "${entry.label}"`} onClose={onClose}>
+      <div className="space-y-3">
+        <Field label="Name">
+          <Input value={label} onChange={(e) => setLabel(e.target.value.slice(0, 80))} />
+        </Field>
+        <Field label="Prompt">
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value.slice(0, 4000))}
+            rows={6}
+            className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </Field>
+        <Field label="Icon">
+          <div className="flex flex-wrap gap-1.5">
+            {(Object.keys(ICON_MAP) as IconKey[]).map((k) => {
+              const Icon = ICON_MAP[k];
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setIconKey(k)}
+                  className={cn(
+                    "rounded-md border-2 p-2",
+                    iconKey === k
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                </button>
+              );
+            })}
+          </div>
+        </Field>
+        <Field label="Accent color">
+          <div className="flex flex-wrap gap-1.5">
+            {ACCENT_KEYS.map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setAccent(k)}
+                className={cn(
+                  "h-7 w-7 rounded-full border-2 capitalize transition-transform",
+                  accent === k ? "scale-110 border-foreground" : "border-transparent"
+                )}
+                style={{
+                  backgroundColor: {
+                    teal: "#0d9488",
+                    amber: "#f59e0b",
+                    sky: "#0ea5e9",
+                    rose: "#f43f5e",
+                    emerald: "#10b981",
+                    indigo: "#6366f1",
+                  }[k],
+                }}
+                aria-label={k}
+              />
+            ))}
+          </div>
+        </Field>
+        {error && <p className="text-xs text-destructive">{error}</p>}
+        <div className="flex justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            Save changes
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function Modal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="w-full max-w-md rounded-xl border border-border bg-background shadow-2xl">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <h3 className="text-sm font-semibold">{title}</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="p-4">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[11px] font-medium text-muted-foreground">{label}</span>
+      {children}
+    </label>
   );
 }
 

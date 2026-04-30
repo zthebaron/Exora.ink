@@ -36,6 +36,13 @@
       "when": 1777504229349,
       "tag": "0004_add_tool_feedback",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777570919526,
+      "tag": "0005_add_batch_enhance_prompts",
+      "breakpoints": true
     }
   ]
 }
